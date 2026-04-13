@@ -1,0 +1,43 @@
+import { TeamMember } from '../types/team';
+import { STAT_LABELS } from './typeColors';
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatMoveName(name: string) {
+  return name.split('-').map(capitalize).join(' ');
+}
+
+export function memberToShowdown(m: TeamMember): string {
+  const lines: string[] = [];
+  const displayName = m.nickname
+    ? `${m.nickname} (${capitalize(m.pokemon.name)})`
+    : capitalize(m.pokemon.name);
+
+  lines.push(m.item ? `${displayName} @ ${m.item}` : displayName);
+  lines.push(`Ability: ${capitalize(m.ability)}`);
+  if (m.teraType) lines.push(`Tera Type: ${capitalize(m.teraType)}`);
+
+  const evParts = Object.entries(m.evs)
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => `${v} ${STAT_LABELS[k] ?? k.toUpperCase()}`);
+  if (evParts.length) lines.push(`EVs: ${evParts.join(' / ')}`);
+
+  lines.push(`${m.nature} Nature`);
+
+  const ivParts = Object.entries(m.ivs)
+    .filter(([, v]) => v !== 31)
+    .map(([k, v]) => `${v} ${STAT_LABELS[k] ?? k.toUpperCase()}`);
+  if (ivParts.length) lines.push(`IVs: ${ivParts.join(' / ')}`);
+
+  for (const move of m.moves) {
+    if (move) lines.push(`- ${formatMoveName(move)}`);
+  }
+
+  return lines.join('\n');
+}
+
+export function teamToShowdown(members: TeamMember[]): string {
+  return members.map(memberToShowdown).join('\n\n');
+}
