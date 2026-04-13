@@ -1,4 +1,4 @@
-import { TeamMember } from '../types/team';
+import type { TeamMember } from '../types/team';
 import { STAT_LABELS } from './typeColors';
 
 function capitalize(s: string) {

@@ -3,7 +3,7 @@ import { PokemonCard } from '../components/pokedex/PokemonCard';
 import { PokemonDetail } from '../components/pokedex/PokemonDetail';
 import { Spinner } from '../components/ui/Spinner';
 import { fetchGeneration, searchPokemon } from '../api/pokeapi';
-import { PokemonListItem, Pokemon } from '../types/pokemon';
+import type { PokemonListItem, Pokemon } from '../types/pokemon';
 
 const GENERATIONS = [
   { label: 'Gen 1', value: 1 },

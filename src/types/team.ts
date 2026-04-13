@@ -1,4 +1,4 @@
-import { Pokemon } from './pokemon';
+import type { Pokemon } from './pokemon';
 
 export type Nature =
   | 'Hardy' | 'Lonely' | 'Brave' | 'Adamant' | 'Naughty'

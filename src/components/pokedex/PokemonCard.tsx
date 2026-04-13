@@ -1,4 +1,4 @@
-import { PokemonListItem } from '../../types/pokemon';
+import type { PokemonListItem } from '../../types/pokemon';
 import { TypeBadge } from '../ui/TypeBadge';
 import { TYPE_COLORS } from '../../utils/typeColors';
 

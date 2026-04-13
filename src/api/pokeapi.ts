@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Pokemon, PokemonListItem } from '../types/pokemon';
+import type { Pokemon, PokemonListItem } from '../types/pokemon';
 
 const BASE = 'https://pokeapi.co/api/v2';
 

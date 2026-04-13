@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Team, TeamMember } from '../types/team';
-import { Pokemon } from '../types/pokemon';
+import type { Team, TeamMember } from '../types/team';
+import type { Pokemon } from '../types/pokemon';
 import { nanoid } from '../utils/nanoid';
 
 interface TeamStore {

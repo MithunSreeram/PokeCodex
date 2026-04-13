@@ -1,4 +1,4 @@
-import { Pokemon } from '../../types/pokemon';
+import type { Pokemon } from '../../types/pokemon';
 import { TypeBadge } from '../ui/TypeBadge';
 import { StatBar } from '../ui/StatBar';
 import { getDefensiveProfile } from '../../utils/typeChart';
