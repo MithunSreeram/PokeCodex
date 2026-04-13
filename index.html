@@ -4,41 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pokecodex</title>
-    <style>
-      body { background: #030712; color: #e5e7eb; font-family: monospace; }
-      #debug { padding: 16px; font-size: 13px; }
-    </style>
+    <title>PokeCodex</title>
   </head>
   <body>
-    <div id="debug">JS loading...</div>
     <div id="root"></div>
-    <script>
-      window.addEventListener('error', function(e) {
-        document.getElementById('debug').innerHTML =
-          '<b style="color:#f87171">JS Error:</b><br>' + e.message + '<br>' + (e.filename || '') + ':' + e.lineno;
-      });
-      window.addEventListener('unhandledrejection', function(e) {
-        document.getElementById('debug').innerHTML =
-          '<b style="color:#f87171">Unhandled Promise:</b><br>' + (e.reason?.message || e.reason || 'unknown');
-      });
-    </script>
     <script type="module" src="/src/main.tsx"></script>
-    <script type="module">
-      // If React mounted successfully, hide debug
-      import('/src/main.tsx').then(() => {
-        setTimeout(() => {
-          const root = document.getElementById('root');
-          if (root && root.children.length > 0) {
-            document.getElementById('debug').style.display = 'none';
-          } else {
-            document.getElementById('debug').textContent = 'React mounted but root is empty — check console for errors';
-          }
-        }, 2000);
-      }).catch(e => {
-        document.getElementById('debug').innerHTML =
-          '<b style="color:#f87171">Module Load Error:</b><br>' + e.message;
-      });
-    </script>
   </body>
 </html>
