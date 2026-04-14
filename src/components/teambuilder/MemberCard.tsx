@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { TeamMember, VGCRole } from '../../store/teamStore';
 import { TypeBadge } from '../ui/TypeBadge';
 import { useTeamStore } from '../../store/teamStore';
@@ -5,12 +6,8 @@ import { calcStat, getNatureEffect, STAT_ORDER, clampEV } from '../../utils/stat
 import { memberToShowdown } from '../../utils/showdownExport';
 import { MoveInput } from './MoveInput';
 import { isChampionsEligible } from '../../utils/championsRoster';
-
-const VGC_ROLES: VGCRole[] = [
-  'Restricted', 'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
-  'Redirector', 'Terrain Setter', 'Weather Setter', 'Sweeper',
-  'Pivot', 'Support', 'Wall', 'Speed Control',
-];
+import { getEligibleRoles, ALL_ROLES } from '../../utils/roleInference';
+import { fetchAbilityEffect } from '../../api/pokeapi';
 
 const NATURES = [
   'Hardy','Lonely','Brave','Adamant','Naughty','Bold','Docile','Relaxed',
@@ -32,6 +29,19 @@ export function MemberCard({ member, teamId, format }: Props) {
   const artwork =
     member.pokemon.sprites.other?.['official-artwork']?.front_default ??
     member.pokemon.sprites.front_default;
+
+  const [abilityDesc, setAbilityDesc] = useState('');
+
+  // Fetch ability description on mount / ability change
+  useEffect(() => {
+    let cancelled = false;
+    setAbilityDesc('');
+    if (!member.ability) return;
+    fetchAbilityEffect(member.ability)
+      .then(d => { if (!cancelled) setAbilityDesc(d); })
+      .catch(() => { if (!cancelled) setAbilityDesc('No description available.'); });
+    return () => { cancelled = true; };
+  }, [member.ability]);
 
   function patch(p: Partial<TeamMember>) {
     updateMember(teamId, member.id, p);
@@ -60,10 +70,15 @@ export function MemberCard({ member, teamId, format }: Props) {
     navigator.clipboard.writeText(memberToShowdown(member));
   }
 
+  // Role filtering — eligible roles first, others below
+  const eligibleRoles = getEligibleRoles(member.pokemon);
+  const otherRoles    = ALL_ROLES.filter(r => !eligibleRoles.includes(r));
+  const roleIsValid   = eligibleRoles.includes(member.role);
+
   return (
-    <div className={`bg-gray-800 rounded-2xl border overflow-hidden ${eligible ? 'border-gray-700' : 'border-red-700/60'}`}>
+    <div className={`bg-gray-800/80 rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/40 hover:-translate-y-0.5 ${eligible ? 'border-gray-700' : 'border-red-700/60'}`}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-gray-700">
+      <div className="flex items-center gap-3 p-3 border-b border-gray-700/60 bg-gray-800">
         <img src={artwork ?? ''} alt={member.pokemon.name} className="w-12 h-12 object-contain" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
@@ -81,8 +96,16 @@ export function MemberCard({ member, teamId, format }: Props) {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <button onClick={() => removeMember(teamId, member.id)} className="text-gray-500 hover:text-red-400 text-lg leading-none" title="Remove">×</button>
-          <button onClick={copyShowdown} className="text-gray-600 hover:text-indigo-400 text-xs leading-none" title="Copy Showdown">⎘</button>
+          <button
+            onClick={() => removeMember(teamId, member.id)}
+            className="text-gray-500 hover:text-red-400 text-lg leading-none transition-colors"
+            title="Remove"
+          >×</button>
+          <button
+            onClick={copyShowdown}
+            className="text-gray-600 hover:text-indigo-400 text-xs leading-none transition-colors"
+            title="Copy Showdown export"
+          >⎘</button>
         </div>
       </div>
 
@@ -92,24 +115,47 @@ export function MemberCard({ member, teamId, format }: Props) {
           placeholder="Nickname"
           value={member.nickname}
           onChange={e => patch({ nickname: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
         />
 
-        {/* Role */}
-        <select
-          value={member.role}
-          onChange={e => patch({ role: e.target.value as VGCRole })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500"
-        >
-          {VGC_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
+        {/* Role selector — eligible roles grouped first */}
+        <div>
+          <select
+            value={member.role}
+            onChange={e => patch({ role: e.target.value as VGCRole })}
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+          >
+            {eligibleRoles.length > 0 && (
+              <optgroup label="✦ Fits this Pokémon">
+                {eligibleRoles.map(r => <option key={r} value={r}>{r}</option>)}
+              </optgroup>
+            )}
+            {otherRoles.length > 0 && (
+              <optgroup label="Other roles">
+                {otherRoles.map(r => <option key={r} value={r}>{r}</option>)}
+              </optgroup>
+            )}
+          </select>
+          {member.role && (
+            <p
+              className={`mt-0.5 pl-0.5 ${roleIsValid ? 'text-green-600' : eligibleRoles.length > 0 ? 'text-yellow-600' : 'text-gray-600'}`}
+              style={{ fontSize: '10px' }}
+            >
+              {roleIsValid
+                ? '✓ This Pokémon can fill this role'
+                : eligibleRoles.length > 0
+                  ? `⚠ Suggested: ${eligibleRoles[0]}`
+                  : ''}
+            </p>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           {/* Nature */}
           <select
             value={member.nature}
             onChange={e => patch({ nature: e.target.value as TeamMember['nature'] })}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500"
+            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500 transition-colors"
           >
             {NATURES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -118,7 +164,7 @@ export function MemberCard({ member, teamId, format }: Props) {
           <select
             value={member.ability}
             onChange={e => patch({ ability: e.target.value })}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white capitalize focus:outline-none focus:border-red-500"
+            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white capitalize focus:outline-none focus:border-red-500 transition-colors"
           >
             {member.pokemon.abilities.map(a => (
               <option key={a.name} value={a.name}>
@@ -128,12 +174,20 @@ export function MemberCard({ member, teamId, format }: Props) {
           </select>
         </div>
 
+        {/* Ability description */}
+        <p
+          className={`pl-1 leading-relaxed transition-all duration-300 ${abilityDesc ? 'text-gray-500' : 'text-gray-700 animate-pulse'}`}
+          style={{ fontSize: '10px', minHeight: '14px' }}
+        >
+          {abilityDesc || (member.ability ? 'Loading ability…' : '')}
+        </p>
+
         {/* Item */}
         <input
           placeholder="Held item"
           value={member.item}
           onChange={e => patch({ item: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
         />
 
         {/* Tera Type */}
@@ -141,10 +195,10 @@ export function MemberCard({ member, teamId, format }: Props) {
           placeholder="Tera Type"
           value={member.teraType}
           onChange={e => patch({ teraType: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 capitalize focus:outline-none focus:border-red-500"
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 capitalize focus:outline-none focus:border-red-500 transition-colors"
         />
 
-        {/* Moves — autocomplete with legal pool validation */}
+        {/* Moves */}
         <div className="space-y-1">
           {member.moves.map((mv, i) => (
             <MoveInput
@@ -158,11 +212,11 @@ export function MemberCard({ member, teamId, format }: Props) {
         </div>
 
         {/* EV / IV Editor */}
-        <div className="pt-1 border-t border-gray-700">
+        <div className="pt-1 border-t border-gray-700/60">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-gray-500 uppercase tracking-wider font-bold" style={{ fontSize: '10px' }}>EVs / IVs</span>
             <span
-              className={`font-mono font-bold ${evRemaining < 0 ? 'text-red-400' : evRemaining === 0 ? 'text-green-400' : 'text-gray-500'}`}
+              className={`font-mono font-bold transition-colors ${evRemaining < 0 ? 'text-red-400' : evRemaining === 0 ? 'text-green-400' : 'text-gray-500'}`}
               style={{ fontSize: '10px' }}
             >
               {evRemaining} EVs left

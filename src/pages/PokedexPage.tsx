@@ -4,6 +4,7 @@ import { PokemonDetail } from '../components/pokedex/PokemonDetail';
 import { Spinner } from '../components/ui/Spinner';
 import { fetchGeneration, searchPokemon } from '../api/pokeapi';
 import type { PokemonListItem, Pokemon } from '../api/pokeapi';
+import { isChampionsEligible } from '../utils/championsRoster';
 
 const GENERATIONS = [
   { label: 'Gen 1', value: 1 },
@@ -22,6 +23,7 @@ export function PokedexPage() {
   const [filtered, setFiltered] = useState<PokemonListItem[]>([]);
   const [query, setQuery] = useState('');
   const [gen, setGen] = useState(1);
+  const [championsOnly, setChampionsOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Pokemon | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -33,7 +35,6 @@ export function PokedexPage() {
     try {
       const data = await fetchGeneration(g);
       setList(data);
-      setFiltered(data);
     } finally {
       setLoading(false);
     }
@@ -42,13 +43,14 @@ export function PokedexPage() {
   useEffect(() => { loadGen(gen); }, [gen, loadGen]);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setFiltered(list);
-      return;
+    let result = list;
+    if (championsOnly) result = result.filter(p => isChampionsEligible(p.name));
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter(p => p.name.includes(q) || String(p.id).includes(q));
     }
-    const q = query.toLowerCase();
-    setFiltered(list.filter(p => p.name.includes(q) || String(p.id).includes(q)));
-  }, [query, list]);
+    setFiltered(result);
+  }, [query, list, championsOnly]);
 
   async function handleCardClick(item: PokemonListItem) {
     setDetailLoading(true);
@@ -75,9 +77,23 @@ export function PokedexPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by name or ID..."
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
           />
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 flex-wrap items-center">
+            {/* Champions filter toggle */}
+            <button
+              onClick={() => setChampionsOnly(v => !v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 border ${
+                championsOnly
+                  ? 'bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-900/40'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              }`}
+            >
+              Champions
+            </button>
+
+            <div className="w-px h-5 bg-gray-700 mx-0.5" />
+
             {GENERATIONS.map(g => (
               <button
                 key={g.value}
@@ -104,9 +120,14 @@ export function PokedexPage() {
           </div>
         ) : (
           <>
-            <p className="text-gray-500 text-sm mb-4">
-              {filtered.length} Pokémon
-            </p>
+            <div className="flex items-center gap-2 mb-4">
+              <p className="text-gray-500 text-sm">{filtered.length} Pokémon</p>
+              {championsOnly && (
+                <span className="text-xs bg-blue-600/20 text-blue-400 border border-blue-700/40 px-2 py-0.5 rounded-full font-bold">
+                  Champions roster
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {filtered.map(p => (
                 <PokemonCard key={p.id} pokemon={p} onClick={() => handleCardClick(p)} />
@@ -114,7 +135,11 @@ export function PokedexPage() {
             </div>
             {filtered.length === 0 && !loading && (
               <div className="text-center py-20 text-gray-500">
-                No Pokémon found for "{query}"
+                {query
+                  ? `No Pokémon found for "${query}"`
+                  : championsOnly
+                    ? 'No Champions-eligible Pokémon in this generation'
+                    : 'No Pokémon found'}
               </div>
             )}
           </>
@@ -123,7 +148,7 @@ export function PokedexPage() {
 
       {/* Detail Modal */}
       {detailLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <Spinner size={12} />
         </div>
       )}

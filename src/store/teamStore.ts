@@ -48,7 +48,7 @@ interface TeamStore {
   createTeam: (name: string, format?: string) => string;
   deleteTeam: (id: string) => void;
   setActiveTeam: (id: string) => void;
-  addMember: (teamId: string, pokemon: Pokemon) => void;
+  addMember: (teamId: string, pokemon: Pokemon, role?: VGCRole) => void;
   removeMember: (teamId: string, memberId: string) => void;
   updateMember: (teamId: string, memberId: string, patch: Partial<TeamMember>) => void;
 }
@@ -74,7 +74,7 @@ export const useTeamStore = create<TeamStore>()(
 
       setActiveTeam: (id) => set({ activeTeamId: id }),
 
-      addMember: (teamId, pokemon) =>
+      addMember: (teamId, pokemon, role = 'Sweeper') =>
         set(s => ({
           teams: s.teams.map(t => {
             if (t.id !== teamId || t.members.length >= 6) return t;
@@ -88,7 +88,7 @@ export const useTeamStore = create<TeamStore>()(
               moves: ['', '', '', ''],
               evs: { hp:0, atk:0, def:0, spa:0, spd:0, spe:0 },
               ivs: { hp:31, atk:31, def:31, spa:31, spd:31, spe:31 },
-              role: 'Sweeper',
+              role,
               isRestricted: false,
               teraType: pokemon.types[0] ?? 'normal',
             };
