@@ -1,4 +1,4 @@
-import type { Team, VGCRole } from '../../types/team';
+import type { Team, VGCRole } from '../../store/teamStore';
 import { getTeamWeaknessMatrix } from '../../utils/typeChart';
 import { TYPE_COLORS } from '../../utils/typeColors';
 import { teamToShowdown } from '../../utils/showdownExport';

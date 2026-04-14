@@ -1,4 +1,4 @@
-import type { TeamMember, VGCRole } from '../../types/team';
+import type { TeamMember, VGCRole } from '../../store/teamStore';
 import { TypeBadge } from '../ui/TypeBadge';
 import { useTeamStore } from '../../store/teamStore';
 

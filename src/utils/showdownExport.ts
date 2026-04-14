@@ -1,21 +1,16 @@
-import type { TeamMember } from '../types/team';
+import type { TeamMember } from '../store/teamStore';
 import { STAT_LABELS } from './typeColors';
 
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function formatMoveName(name: string) {
-  return name.split('-').map(capitalize).join(' ');
-}
+function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function formatMove(name: string) { return name.split('-').map(capitalize).join(' '); }
 
 export function memberToShowdown(m: TeamMember): string {
   const lines: string[] = [];
-  const displayName = m.nickname
+  const display = m.nickname
     ? `${m.nickname} (${capitalize(m.pokemon.name)})`
     : capitalize(m.pokemon.name);
 
-  lines.push(m.item ? `${displayName} @ ${m.item}` : displayName);
+  lines.push(m.item ? `${display} @ ${m.item}` : display);
   lines.push(`Ability: ${capitalize(m.ability)}`);
   if (m.teraType) lines.push(`Tera Type: ${capitalize(m.teraType)}`);
 
@@ -32,9 +27,8 @@ export function memberToShowdown(m: TeamMember): string {
   if (ivParts.length) lines.push(`IVs: ${ivParts.join(' / ')}`);
 
   for (const move of m.moves) {
-    if (move) lines.push(`- ${formatMoveName(move)}`);
+    if (move) lines.push(`- ${formatMove(move)}`);
   }
-
   return lines.join('\n');
 }
 
