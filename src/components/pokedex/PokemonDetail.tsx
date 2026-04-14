@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Pokemon } from '../../api/pokeapi';
+import { fetchAbilityEffect } from '../../api/pokeapi';
 import { TypeBadge } from '../ui/TypeBadge';
 import { StatBar } from '../ui/StatBar';
 import { getDefensiveProfile } from '../../utils/typeChart';
@@ -20,6 +21,16 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
 
   const [shiny, setShiny] = useState(false);
   const [added, setAdded] = useState(false);
+  const [abilityEffects, setAbilityEffects] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setAbilityEffects({});
+    pokemon.abilities.forEach(a => {
+      fetchAbilityEffect(a.name).then(effect => {
+        setAbilityEffects(prev => ({ ...prev, [a.name]: effect }));
+      });
+    });
+  }, [pokemon.id]);
 
   const normalArt = pokemon.sprites.other?.['official-artwork']?.front_default ?? pokemon.sprites.front_default;
   const shinyArt  = pokemon.sprites.other?.['official-artwork']?.front_shiny   ?? pokemon.sprites.front_shiny;
@@ -96,11 +107,24 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
           {/* Abilities */}
           <div>
             <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Abilities</h3>
-            <div className="flex gap-2 flex-wrap">
+            <div className="space-y-2">
               {pokemon.abilities.map(a => (
-                <span key={a.name} className={`px-3 py-1 rounded-lg text-sm capitalize ${a.isHidden ? 'bg-purple-900/50 text-purple-300 border border-purple-700' : 'bg-gray-800 text-gray-200'}`}>
-                  {a.name.replace(/-/g, ' ')}{a.isHidden && <span className="ml-1 text-xs text-purple-400">(HA)</span>}
-                </span>
+                <div
+                  key={a.name}
+                  className={`px-3 py-2 rounded-xl ${a.isHidden ? 'bg-purple-900/30 border border-purple-700/50' : 'bg-gray-800 border border-gray-700'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold capitalize ${a.isHidden ? 'text-purple-200' : 'text-white'}`}>
+                      {a.name.replace(/-/g, ' ')}
+                    </span>
+                    {a.isHidden && (
+                      <span className="text-xs text-purple-400 bg-purple-900/60 px-1.5 py-0.5 rounded font-bold">HA</span>
+                    )}
+                  </div>
+                  <p className={`text-xs mt-0.5 leading-relaxed ${abilityEffects[a.name] ? 'text-gray-400' : 'text-gray-600 animate-pulse'}`}>
+                    {abilityEffects[a.name] ?? 'Loading…'}
+                  </p>
+                </div>
               ))}
             </div>
           </div>

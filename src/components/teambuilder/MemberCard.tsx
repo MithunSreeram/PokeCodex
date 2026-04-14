@@ -19,9 +19,11 @@ const NATURES = [
 interface Props {
   member: TeamMember;
   teamId: string;
+  format?: string;
 }
 
-export function MemberCard({ member, teamId }: Props) {
+export function MemberCard({ member, teamId, format }: Props) {
+  const isChampions = format === 'Pokémon Champions';
   const { removeMember, updateMember } = useTeamStore();
   const artwork =
     member.pokemon.sprites.other?.['official-artwork']?.front_default ??
@@ -225,16 +227,18 @@ export function MemberCard({ member, teamId }: Props) {
           </div>
         </div>
 
-        {/* Restricted toggle */}
-        <label className="flex items-center gap-2 cursor-pointer pt-1">
-          <input
-            type="checkbox"
-            checked={member.isRestricted}
-            onChange={e => patch({ isRestricted: e.target.checked })}
-            className="accent-red-500"
-          />
-          <span className="text-gray-400">Restricted Legendary</span>
-        </label>
+        {/* Restricted toggle — VGC only */}
+        {!isChampions && (
+          <label className="flex items-center gap-2 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={member.isRestricted}
+              onChange={e => patch({ isRestricted: e.target.checked })}
+              className="accent-red-500"
+            />
+            <span className="text-gray-400">Restricted Legendary</span>
+          </label>
+        )}
       </div>
     </div>
   );

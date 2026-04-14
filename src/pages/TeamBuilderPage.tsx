@@ -10,6 +10,7 @@ export function TeamBuilderPage() {
   const activeTeam = teams.find(t => t.id === activeTeamId) ?? null;
 
   const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamFormat, setNewTeamFormat] = useState<'VGC 2025 Series 2' | 'Pokémon Champions'>('VGC 2025 Series 2');
   const [addQuery, setAddQuery] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
@@ -32,7 +33,7 @@ export function TeamBuilderPage() {
   function handleCreateTeam(e: React.FormEvent) {
     e.preventDefault();
     const name = newTeamName.trim() || 'My Team';
-    createTeam(name);
+    createTeam(name, newTeamFormat);
     setNewTeamName('');
   }
 
@@ -44,19 +45,46 @@ export function TeamBuilderPage() {
           {/* Create Team */}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
             <h2 className="text-sm font-bold text-gray-300 mb-3">New Team</h2>
-            <form onSubmit={handleCreateTeam} className="flex gap-2">
-              <input
-                value={newTeamName}
-                onChange={e => setNewTeamName(e.target.value)}
-                placeholder="Team name"
-                className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
-              />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold transition-colors"
-              >
-                +
-              </button>
+            <form onSubmit={handleCreateTeam} className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  value={newTeamName}
+                  onChange={e => setNewTeamName(e.target.value)}
+                  placeholder="Team name"
+                  className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold transition-colors"
+                >
+                  +
+                </button>
+              </div>
+              {/* Format selector */}
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setNewTeamFormat('VGC 2025 Series 2')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    newTeamFormat === 'VGC 2025 Series 2'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  VGC 2025
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTeamFormat('Pokémon Champions')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    newTeamFormat === 'Pokémon Champions'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Champions
+                </button>
+              </div>
             </form>
           </div>
 
@@ -75,8 +103,11 @@ export function TeamBuilderPage() {
                     }`}
                     onClick={() => setActiveTeam(t.id)}
                   >
-                    <span className="flex-1 text-sm font-medium truncate">{t.name}</span>
-                    <span className="text-xs text-gray-500">{t.members.length}/6</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{t.name}</p>
+                      <p className="text-xs text-gray-600 truncate">{t.format === 'Pokémon Champions' ? 'Champions' : 'VGC'}</p>
+                    </div>
+                    <span className="text-xs text-gray-500 shrink-0">{t.members.length}/6</span>
                     <button
                       onClick={e => { e.stopPropagation(); deleteTeam(t.id); }}
                       className="text-gray-600 hover:text-red-400 text-sm"
@@ -129,7 +160,7 @@ export function TeamBuilderPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {activeTeam.members.map(m => (
-                  <MemberCard key={m.id} member={m} teamId={activeTeam.id} />
+                  <MemberCard key={m.id} member={m} teamId={activeTeam.id} format={activeTeam.format} />
                 ))}
                 {/* Empty slots */}
                 {Array.from({ length: 6 - activeTeam.members.length }).map((_, i) => (

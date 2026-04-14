@@ -82,6 +82,14 @@ export async function searchPokemon(query: string): Promise<Pokemon | null> {
   catch { return null; }
 }
 
+export async function fetchAbilityEffect(name: string): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = await get<any>(`/ability/${name}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const en = (raw.effect_entries as any[]).find((e: any) => e.language.name === 'en');
+  return en?.short_effect ?? en?.effect ?? '';
+}
+
 export async function fetchGeneration(gen: number): Promise<PokemonListItem[]> {
   const ranges: Record<number, [number, number]> = {
     1:[1,151],2:[152,251],3:[252,386],4:[387,493],

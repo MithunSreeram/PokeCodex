@@ -4,9 +4,14 @@ import { TYPE_COLORS } from '../../utils/typeColors';
 import { teamToShowdown } from '../../utils/showdownExport';
 import { calcStat, STAT_API_TO_KEY } from '../../utils/statCalc';
 
-const CORE_ROLES: VGCRole[] = [
+const VGC_CORE_ROLES: VGCRole[] = [
   'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
   'Redirector', 'Speed Control',
+];
+
+const CHAMPIONS_CORE_ROLES: VGCRole[] = [
+  'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
+  'Redirector', 'Pivot', 'Speed Control',
 ];
 
 interface Props {
@@ -14,10 +19,12 @@ interface Props {
 }
 
 export function TeamAnalysisPanel({ team }: Props) {
+  const isChampions = team.format === 'Pokémon Champions';
   const memberTypes = team.members.map(m => m.pokemon.types);
   const weakMatrix = getTeamWeaknessMatrix(memberTypes);
   const presentRoles = new Set(team.members.map(m => m.role));
-  const missingRoles = CORE_ROLES.filter(r => !presentRoles.has(r));
+  const coreRoles = isChampions ? CHAMPIONS_CORE_ROLES : VGC_CORE_ROLES;
+  const missingRoles = coreRoles.filter(r => !presentRoles.has(r));
 
   const restrictedCount = team.members.filter(m => m.isRestricted).length;
   const restrictedOk = restrictedCount <= 2;
@@ -41,13 +48,29 @@ export function TeamAnalysisPanel({ team }: Props) {
   return (
     <div className="space-y-4">
       {/* Format Info */}
-      <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
+      <div className={`rounded-2xl p-4 border ${isChampions ? 'bg-blue-950/40 border-blue-700/50' : 'bg-gray-800 border-gray-700'}`}>
         <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-2">Format</h3>
-        <p className="text-white font-semibold">{team.format}</p>
-        <div className={`mt-2 text-xs font-medium ${restrictedOk ? 'text-green-400' : 'text-red-400'}`}>
-          {restrictedCount}/2 Restricted slots used
-          {!restrictedOk && ' — exceeds limit!'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-white font-semibold">{team.format}</p>
+          {isChampions && (
+            <span className="text-xs bg-blue-600/30 text-blue-300 border border-blue-600/40 px-2 py-0.5 rounded-full font-bold">
+              Champions
+            </span>
+          )}
         </div>
+
+        {isChampions ? (
+          <div className="mt-2 space-y-1 text-xs">
+            <p className="text-blue-300">✓ No restricted Pokémon</p>
+            <p className="text-blue-300">✓ Standard team of 6</p>
+            <p className="text-blue-300">✓ Curated Pokémon pool</p>
+          </div>
+        ) : (
+          <div className={`mt-2 text-xs font-medium ${restrictedOk ? 'text-green-400' : 'text-red-400'}`}>
+            {restrictedCount}/2 Restricted slots used
+            {!restrictedOk && ' — exceeds limit!'}
+          </div>
+        )}
       </div>
 
       {/* Missing Roles */}
