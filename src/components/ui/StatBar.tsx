@@ -4,16 +4,22 @@ interface Props {
   name: string;
   value: number;
   max?: number;
+  modifier?: 'up' | 'down' | null;
 }
 
-export function StatBar({ name, value, max = 255 }: Props) {
+export function StatBar({ name, value, max = 255, modifier }: Props) {
   const pct = Math.round((value / max) * 100);
   const color = STAT_COLORS[name] ?? '#aaa';
   const label = STAT_LABELS[name] ?? name;
 
+  const labelClass =
+    modifier === 'up'   ? 'text-red-400 font-bold' :
+    modifier === 'down' ? 'text-blue-400 font-bold' :
+    'text-gray-400';
+
   return (
     <div className="flex items-center gap-3">
-      <span className="w-10 text-right text-xs font-bold text-gray-400 uppercase">{label}</span>
+      <span className={`w-10 text-right text-xs uppercase ${labelClass}`}>{label}</span>
       <span className="w-8 text-right text-sm font-semibold text-gray-200">{value}</span>
       <div className="flex-1 h-2.5 rounded-full bg-gray-700 overflow-hidden">
         <div
