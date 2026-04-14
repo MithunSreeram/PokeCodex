@@ -3,6 +3,7 @@ import { getTeamWeaknessMatrix } from '../../utils/typeChart';
 import { TYPE_COLORS } from '../../utils/typeColors';
 import { teamToShowdown } from '../../utils/showdownExport';
 import { calcStat, STAT_API_TO_KEY } from '../../utils/statCalc';
+import { isChampionsEligible } from '../../utils/championsRoster';
 
 const VGC_CORE_ROLES: VGCRole[] = [
   'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
@@ -38,6 +39,11 @@ export function TeamAnalysisPanel({ team }: Props) {
     })
     .sort((a, b) => b.spe - a.spe);
 
+  // Champions eligibility check
+  const ineligible = isChampions
+    ? team.members.filter(m => !isChampionsEligible(m.pokemon.name))
+    : [];
+
   // Offensive type coverage (unique types the team can hit)
   const offensiveTypes = [...new Set(team.members.flatMap(m => m.pokemon.types))];
 
@@ -72,6 +78,21 @@ export function TeamAnalysisPanel({ team }: Props) {
           </div>
         )}
       </div>
+
+      {/* Champions eligibility violations */}
+      {isChampions && ineligible.length > 0 && (
+        <div className="bg-red-900/30 rounded-2xl p-4 border border-red-700/50">
+          <h3 className="text-xs text-red-400 uppercase font-bold tracking-wider mb-2">Not in Roster</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {ineligible.map(m => (
+              <span key={m.id} className="px-2 py-0.5 bg-red-800/50 text-red-300 rounded-lg text-xs capitalize">
+                {m.pokemon.name.replace(/-/g, ' ')}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-red-500 mt-2">Remove these before submitting to ranked.</p>
+        </div>
+      )}
 
       {/* Missing Roles */}
       {missingRoles.length > 0 && (

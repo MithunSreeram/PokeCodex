@@ -4,6 +4,7 @@ import { MemberCard } from '../components/teambuilder/MemberCard';
 import { TeamAnalysisPanel } from '../components/teambuilder/TeamAnalysisPanel';
 import { searchPokemon } from '../api/pokeapi';
 import { Spinner } from '../components/ui/Spinner';
+import { isChampionsEligible } from '../utils/championsRoster';
 
 export function TeamBuilderPage() {
   const { teams, activeTeamId, createTeam, deleteTeam, setActiveTeam, addMember } = useTeamStore();
@@ -24,6 +25,10 @@ export function TeamBuilderPage() {
     setAddLoading(false);
     if (!poke) {
       setAddError(`Could not find "${addQuery}"`);
+      return;
+    }
+    if (activeTeam?.format === 'Pokémon Champions' && !isChampionsEligible(poke.name)) {
+      setAddError(`${poke.name.replace(/-/g, ' ')} is not in the Pokémon Champions roster (Regular Roster M-A)`);
       return;
     }
     addMember(activeTeamId, poke);
