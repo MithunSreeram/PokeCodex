@@ -90,6 +90,16 @@ export async function fetchAbilityEffect(name: string): Promise<string> {
   return en?.short_effect ?? en?.effect ?? '';
 }
 
+export async function fetchMoveData(slug: string): Promise<{ name: string; basePower: number; type: string; category: 'physical' | 'special' | 'status' }> {
+  const raw = await get<any>(`/move/${slug}`);
+  return {
+    name: slug,
+    basePower: raw.power ?? 0,
+    type: raw.type?.name ?? 'normal',
+    category: (raw.damage_class?.name ?? 'status') as 'physical' | 'special' | 'status',
+  };
+}
+
 export async function fetchAllPokemonNames(): Promise<string[]> {
   const data = await get<any>('/pokemon?limit=1500&offset=0');
   return (data.results as any[]).map((r: any) => r.name as string);
