@@ -6,6 +6,7 @@ export function NavBar() {
   const links = [
     { to: '/', label: 'Pokédex' },
     { to: '/team-builder', label: 'Team Builder' },
+    { to: '/battle', label: 'Battle Advisor' },
   ];
 
   return (
