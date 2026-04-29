@@ -33,6 +33,20 @@ export interface DamageResult {
   category: 'physical' | 'special' | 'status';
 }
 
+/** Per-Pokémon in-battle stat stage modifiers (-6 to +6). */
+export interface StatStages {
+  atk: number;
+  spa: number;
+  def: number;
+  spd: number;
+}
+
+/** Stat-stage multiplier: (2+s)/2 for s≥0, 2/(2-s) for s<0. */
+function stageMultiplier(stage: number): number {
+  const s = Math.max(-6, Math.min(6, stage));
+  return s >= 0 ? (2 + s) / 2 : 2 / (2 - s);
+}
+
 export type Weather =
   | 'none'
   | 'sun'        // Harsh Sunlight: fire ×1.5, water ×0.5
@@ -78,6 +92,8 @@ export function calcDamage(
   move: MoveData,
   defender: PokeSnapshot,
   weather: Weather = 'none',
+  attackerStages: Partial<StatStages> = {},
+  defenderStages: Partial<StatStages> = {},
 ): DamageResult {
   if (move.category === 'status' || move.basePower <= 0) {
     return { min: 0, max: 0, minPct: 0, maxPct: 0, effectiveness: 1, stab: false, category: move.category };
@@ -96,11 +112,18 @@ export function calcDamage(
   const atkBase = move.category === 'physical' ? attacker.baseAtk : attacker.baseSpa;
   const defBase = move.category === 'physical' ? defender.baseDef : defender.baseSpd;
 
-  const atkStat    = calcStat(atkBase, attacker.evs[atkKey], attacker.ivs[atkKey], attacker.nature, atkKey);
-  const defStatRaw = calcStat(defBase, defender.evs[defKey], defender.ivs[defKey], defender.nature, defKey);
-  // Sand buffs Rock SpD; Snow buffs Ice Def — raise the bar before dividing
-  const defStat    = Math.floor(defStatRaw * weatherDefMod(weather, defender.types, defKey));
-  const defHP      = calcStat(defender.baseHp, defender.evs.hp, defender.ivs.hp, defender.nature, 'hp');
+  // Stat stages applied to the calculated stat, weather defense applied after
+  const atkStatBase = calcStat(atkBase, attacker.evs[atkKey], attacker.ivs[atkKey], attacker.nature, atkKey);
+  const atkStageVal = atkKey === 'atk' ? (attackerStages.atk ?? 0) : (attackerStages.spa ?? 0);
+  const atkStat     = Math.max(1, Math.floor(atkStatBase * stageMultiplier(atkStageVal)));
+
+  const defStatBase  = calcStat(defBase, defender.evs[defKey], defender.ivs[defKey], defender.nature, defKey);
+  const defStageVal  = defKey === 'def' ? (defenderStages.def ?? 0) : (defenderStages.spd ?? 0);
+  const defStatStaged = Math.max(1, Math.floor(defStatBase * stageMultiplier(defStageVal)));
+  // Sand buffs Rock SpD; Snow buffs Ice Def — applied on top of stage-modified stat
+  const defStat = Math.max(1, Math.floor(defStatStaged * weatherDefMod(weather, defender.types, defKey)));
+
+  const defHP = calcStat(defender.baseHp, defender.evs.hp, defender.ivs.hp, defender.nature, 'hp');
 
   // floor((floor((floor(2*50/5+2) * BP * Atk / Def) / 50) + 2) * modifiers)
   const levelFactor = Math.floor((2 * 50) / 5 + 2); // = 22
