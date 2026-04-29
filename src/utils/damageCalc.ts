@@ -33,14 +33,61 @@ export interface DamageResult {
   category: 'physical' | 'special' | 'status';
 }
 
+export type Weather =
+  | 'none'
+  | 'sun'        // Harsh Sunlight: fire ×1.5, water ×0.5
+  | 'rain'       // Rain: water ×1.5, fire ×0.5
+  | 'sand'       // Sandstorm: rock SpD ×1.5
+  | 'snow'       // Snow: ice Def ×1.5
+  | 'extremesun' // Desolate Land: fire ×1.5, water nullified
+  | 'heavyrain'; // Primordial Sea: water ×1.5, fire nullified
+
+/** Offensive modifier applied to a move's damage by the current weather. */
+export function weatherMoveMod(weather: Weather, moveType: string): number {
+  switch (weather) {
+    case 'sun':
+      if (moveType === 'fire')  return 1.5;
+      if (moveType === 'water') return 0.5;
+      break;
+    case 'extremesun':
+      if (moveType === 'fire')  return 1.5;
+      if (moveType === 'water') return 0; // nullified
+      break;
+    case 'rain':
+      if (moveType === 'water') return 1.5;
+      if (moveType === 'fire')  return 0.5;
+      break;
+    case 'heavyrain':
+      if (moveType === 'water') return 1.5;
+      if (moveType === 'fire')  return 0; // nullified
+      break;
+  }
+  return 1;
+}
+
+/** Defensive stat multiplier granted by weather to the defender. */
+function weatherDefMod(weather: Weather, defTypes: string[], statKey: 'def' | 'spd'): number {
+  if (weather === 'sand' && statKey === 'spd' && defTypes.includes('rock')) return 1.5;
+  if (weather === 'snow' && statKey === 'def' && defTypes.includes('ice'))  return 1.5;
+  return 1;
+}
+
 /** Gen 8/9 damage formula at Lv 50. Returns min/max damage and HP%. */
 export function calcDamage(
   attacker: PokeSnapshot,
   move: MoveData,
   defender: PokeSnapshot,
+  weather: Weather = 'none',
 ): DamageResult {
   if (move.category === 'status' || move.basePower <= 0) {
     return { min: 0, max: 0, minPct: 0, maxPct: 0, effectiveness: 1, stab: false, category: move.category };
+  }
+
+  const moveMod = weatherMoveMod(weather, move.type);
+  if (moveMod === 0) {
+    // Move fails entirely (Desolate Land / Primordial Sea)
+    const typeEff = getEffectiveness(move.type, defender.types);
+    return { min: 0, max: 0, minPct: 0, maxPct: 0, effectiveness: typeEff, stab: false, category: move.category };
   }
 
   const atkKey = move.category === 'physical' ? 'atk' : 'spa';
@@ -49,9 +96,11 @@ export function calcDamage(
   const atkBase = move.category === 'physical' ? attacker.baseAtk : attacker.baseSpa;
   const defBase = move.category === 'physical' ? defender.baseDef : defender.baseSpd;
 
-  const atkStat = calcStat(atkBase, attacker.evs[atkKey], attacker.ivs[atkKey], attacker.nature, atkKey);
-  const defStat = calcStat(defBase, defender.evs[defKey], defender.ivs[defKey], defender.nature, defKey);
-  const defHP   = calcStat(defender.baseHp, defender.evs.hp, defender.ivs.hp, defender.nature, 'hp');
+  const atkStat    = calcStat(atkBase, attacker.evs[atkKey], attacker.ivs[atkKey], attacker.nature, atkKey);
+  const defStatRaw = calcStat(defBase, defender.evs[defKey], defender.ivs[defKey], defender.nature, defKey);
+  // Sand buffs Rock SpD; Snow buffs Ice Def — raise the bar before dividing
+  const defStat    = Math.floor(defStatRaw * weatherDefMod(weather, defender.types, defKey));
+  const defHP      = calcStat(defender.baseHp, defender.evs.hp, defender.ivs.hp, defender.nature, 'hp');
 
   // floor((floor((floor(2*50/5+2) * BP * Atk / Def) / 50) + 2) * modifiers)
   const levelFactor = Math.floor((2 * 50) / 5 + 2); // = 22
@@ -60,7 +109,7 @@ export function calcDamage(
   const effectiveness = getEffectiveness(move.type, defender.types);
   const stab = attacker.types.includes(move.type) ? 1.5 : 1;
 
-  const max = Math.floor(rawDmg * stab * effectiveness);
+  const max = Math.floor(rawDmg * stab * effectiveness * moveMod);
   const min = Math.floor(max * 0.85);
 
   return {
