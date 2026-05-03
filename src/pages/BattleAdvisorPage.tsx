@@ -56,6 +56,8 @@ export function BattleAdvisorPage() {
 
   const ourLeads   = brings.filter((m)       => ourLeadIds.has(m.id));
   const theirLeads = opponents.filter((_, i) => theirLeadIdxs.has(i));
+  const ourBench   = brings.filter((m)       => !ourLeadIds.has(m.id));
+  const theirBench = opponents.filter((_, i) => !theirLeadIdxs.has(i));
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -113,6 +115,27 @@ export function BattleAdvisorPage() {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else if (next.size < leadCount) next.add(idx);
+      return next;
+    });
+  }
+
+  function switchOurLead(outId: string, inId: string) {
+    setOurLeadIds(prev => {
+      const next = new Set(prev);
+      next.delete(outId);
+      next.add(inId);
+      return next;
+    });
+  }
+
+  function switchTheirLead(outName: string, inName: string) {
+    const outIdx = opponents.findIndex(o => o.pokemon.name === outName);
+    const inIdx  = opponents.findIndex(o => o.pokemon.name === inName);
+    if (outIdx < 0 || inIdx < 0) return;
+    setTheirLeadIdxs(prev => {
+      const next = new Set(prev);
+      next.delete(outIdx);
+      next.add(inIdx);
       return next;
     });
   }
@@ -533,6 +556,10 @@ export function BattleAdvisorPage() {
         <MoveAdvisor
           ourLeads={ourLeads}
           theirLeads={theirLeads}
+          ourBench={ourBench}
+          theirBench={theirBench}
+          onSwitchOurLead={switchOurLead}
+          onSwitchTheirLead={switchTheirLead}
           onBack={() => setStep('leads')}
           onReset={fullReset}
         />

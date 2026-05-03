@@ -10,6 +10,10 @@ import { formatMoveName } from '../teambuilder/MoveInput';
 interface Props {
   ourLeads: TeamMember[];
   theirLeads: InferredOpponent[];
+  ourBench: TeamMember[];
+  theirBench: InferredOpponent[];
+  onSwitchOurLead: (outId: string, inId: string) => void;
+  onSwitchTheirLead: (outName: string, inName: string) => void;
   onBack: () => void;
   onReset: () => void;
 }
@@ -123,7 +127,7 @@ function StageControl({ label, stage, onDec, onInc, onReset }: {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
+export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwitchOurLead, onSwitchTheirLead, onBack, onReset }: Props) {
   const [fetchedMoves, setFetchedMoves] = useState<Map<string, FetchedMove[]>>(new Map());
   const [loading, setLoading]           = useState(true);
   const [weather, setWeather]           = useState<Weather>('none');
@@ -132,6 +136,10 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
   // All 5 stat stages for every Pokémon on the field
   const [ourStages,   setOurStages]   = useState<Map<string, PokemonStages>>(new Map());
   const [theirStages, setTheirStages] = useState<Map<number, PokemonStages>>(new Map());
+
+  // Switch mechanism: pending bench mon to switch in (id for ours, name for theirs)
+  const [pendingOurIn,   setPendingOurIn]   = useState<string | null>(null);
+  const [pendingTheirIn, setPendingTheirIn] = useState<string | null>(null);
 
   useEffect(() => {
     if (ourLeads.length === 0 || theirLeads.length === 0) { setLoading(false); return; }
@@ -142,7 +150,7 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
   async function fetchAll() {
     setLoading(true);
     const result = new Map<string, FetchedMove[]>();
-    for (const attacker of ourLeads) {
+    for (const attacker of [...ourLeads, ...ourBench]) {
       const moves: FetchedMove[] = [];
       for (const slug of attacker.moves) {
         if (!slug) continue;
@@ -178,6 +186,23 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
   }
   function resetTheirS(i: number, stat: keyof PokemonStages) {
     setTheirStages(prev => { const m = new Map(prev); const cur = m.get(i) ?? defaultStages(); m.set(i, { ...cur, [stat]: 0 }); return m; });
+  }
+
+  // ── Switch helpers ────────────────────────────────────────────────────
+
+  function doSwitchOur(slotIdx: number, outId: string, inId: string) {
+    // Reset stages for the switched-out mon (real battle: stages clear on switch)
+    setOurStages(prev => { const m = new Map(prev); m.delete(outId); return m; });
+    if (activeId === outId) setActiveId(inId);
+    setPendingOurIn(null);
+    onSwitchOurLead(outId, inId);
+  }
+
+  function doSwitchTheir(slotIdx: number, outName: string, inName: string) {
+    // Clear the slot's stages (slot index stays the same, new mon fills it fresh)
+    setTheirStages(prev => { const m = new Map(prev); m.delete(slotIdx); return m; });
+    setPendingTheirIn(null);
+    onSwitchTheirLead(outName, inName);
   }
 
   // ── Damage calculation (reactive to weather + stages) ────────────────
@@ -280,6 +305,126 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
             {weather === 'snow'       && <p className="text-cyan-400">Ice: Def ×1.5 vs physical moves</p>}
           </div>
         )}
+      </div>
+
+      {/* ── Switch panel ─────────────────────────────────────────────── */}
+      <div className="bg-gray-800/60 rounded-2xl p-4 border border-gray-700">
+        <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Switch Pokémon</p>
+        <div className="grid md:grid-cols-2 gap-5">
+
+          {/* Our side */}
+          <div>
+            <p className="text-xs text-blue-300 font-semibold mb-2">Your Active</p>
+            <div className="flex gap-2 flex-wrap mb-3">
+              {ourLeads.map((lead, slotIdx) => (
+                <div key={lead.id}
+                  onClick={pendingOurIn ? () => doSwitchOur(slotIdx, lead.id, pendingOurIn) : undefined}
+                  className={`flex flex-col items-center p-2 rounded-xl border transition-all select-none ${
+                    pendingOurIn
+                      ? 'border-blue-400 bg-blue-950/30 cursor-pointer hover:bg-blue-900/40 ring-1 ring-blue-400/40'
+                      : 'border-gray-600 bg-gray-700/40'
+                  }`}
+                >
+                  <img src={pokeSprite(lead.pokemon)} className="w-10 h-10 object-contain" alt="" />
+                  <span className="text-xs text-gray-200 capitalize mt-0.5 text-center max-w-[64px] leading-tight truncate">
+                    {lead.nickname || lead.pokemon.name.replace(/-/g, ' ')}
+                  </span>
+                  {pendingOurIn && (
+                    <span className="text-blue-400 text-[10px] mt-0.5 font-semibold">← replace</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mb-1.5">Bench</p>
+            <div className="flex gap-2 flex-wrap">
+              {ourBench.length === 0 ? (
+                <span className="text-xs text-gray-600 italic">No bench available</span>
+              ) : ourBench.map(m => (
+                <button key={m.id}
+                  onClick={() => {
+                    if (ourLeads.length === 1) {
+                      doSwitchOur(0, ourLeads[0].id, m.id);
+                    } else {
+                      setPendingOurIn(prev => prev === m.id ? null : m.id);
+                      setPendingTheirIn(null);
+                    }
+                  }}
+                  className={`flex flex-col items-center p-2 rounded-xl border transition-all ${
+                    pendingOurIn === m.id
+                      ? 'border-blue-500 bg-blue-950/40 text-blue-300'
+                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500 hover:text-white'
+                  }`}
+                >
+                  <img src={pokeSprite(m.pokemon)} className="w-8 h-8 object-contain" alt="" />
+                  <span className="text-[10px] capitalize text-center mt-0.5 max-w-[56px] leading-tight truncate">
+                    {m.nickname || m.pokemon.name.replace(/-/g, ' ')}
+                  </span>
+                  <span className="text-[10px] text-gray-600 mt-0.5">⇆ Switch in</span>
+                </button>
+              ))}
+            </div>
+            {pendingOurIn && ourLeads.length > 1 && (
+              <p className="text-xs text-blue-400 mt-2">Click an active Pokémon above to swap it out</p>
+            )}
+          </div>
+
+          {/* Their side */}
+          <div>
+            <p className="text-xs text-red-300 font-semibold mb-2">Their Active</p>
+            <div className="flex gap-2 flex-wrap mb-3">
+              {theirLeads.map((opp, slotIdx) => (
+                <div key={opp.pokemon.name}
+                  onClick={pendingTheirIn ? () => doSwitchTheir(slotIdx, opp.pokemon.name, pendingTheirIn) : undefined}
+                  className={`flex flex-col items-center p-2 rounded-xl border transition-all select-none ${
+                    pendingTheirIn
+                      ? 'border-red-400 bg-red-950/30 cursor-pointer hover:bg-red-900/40 ring-1 ring-red-400/40'
+                      : 'border-gray-600 bg-gray-700/40'
+                  }`}
+                >
+                  <img src={pokeSprite(opp.pokemon)} className="w-10 h-10 object-contain" alt="" />
+                  <span className="text-xs text-gray-200 capitalize mt-0.5 text-center max-w-[64px] leading-tight truncate">
+                    {opp.pokemon.name.replace(/-/g, ' ')}
+                  </span>
+                  {pendingTheirIn && (
+                    <span className="text-red-400 text-[10px] mt-0.5 font-semibold">← replace</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mb-1.5">Bench</p>
+            <div className="flex gap-2 flex-wrap">
+              {theirBench.length === 0 ? (
+                <span className="text-xs text-gray-600 italic">No bench available</span>
+              ) : theirBench.map(opp => (
+                <button key={opp.pokemon.name}
+                  onClick={() => {
+                    if (theirLeads.length === 1) {
+                      doSwitchTheir(0, theirLeads[0].pokemon.name, opp.pokemon.name);
+                    } else {
+                      setPendingTheirIn(prev => prev === opp.pokemon.name ? null : opp.pokemon.name);
+                      setPendingOurIn(null);
+                    }
+                  }}
+                  className={`flex flex-col items-center p-2 rounded-xl border transition-all ${
+                    pendingTheirIn === opp.pokemon.name
+                      ? 'border-red-500 bg-red-950/40 text-red-300'
+                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500 hover:text-white'
+                  }`}
+                >
+                  <img src={pokeSprite(opp.pokemon)} className="w-8 h-8 object-contain" alt="" />
+                  <span className="text-[10px] capitalize text-center mt-0.5 max-w-[56px] leading-tight truncate">
+                    {opp.pokemon.name.replace(/-/g, ' ')}
+                  </span>
+                  <span className="text-[10px] text-gray-600 mt-0.5">⇆ Switch in</span>
+                </button>
+              ))}
+            </div>
+            {pendingTheirIn && theirLeads.length > 1 && (
+              <p className="text-xs text-red-400 mt-2">Click an active Pokémon above to swap it out</p>
+            )}
+          </div>
+
+        </div>
       </div>
 
       {/* ── Stat Stages panel ────────────────────────────────────────── */}
