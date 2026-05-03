@@ -36,9 +36,10 @@ export interface DamageResult {
 /** Per-Pokémon in-battle stat stage modifiers (-6 to +6). */
 export interface StatStages {
   atk: number;
-  spa: number;
   def: number;
+  spa: number;
   spd: number;
+  spe: number; // tracked for display; not used in damage formula
 }
 
 /** Stat-stage multiplier: (2+s)/2 for s≥0, 2/(2-s) for s<0. */

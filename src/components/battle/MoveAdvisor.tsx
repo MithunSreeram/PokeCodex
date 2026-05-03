@@ -23,9 +23,17 @@ interface MoveSuggestion {
   bestDamage: number; bestEffectiveness: number;
 }
 
-// Stage state shapes
-interface OurStage  { atk: number; spa: number }
-interface TheirStage { def: number; spd: number }
+// All 5 in-battle stat stages per Pokémon (HP has no stage in Pokémon battles)
+interface PokemonStages { atk: number; def: number; spa: number; spd: number; spe: number }
+const defaultStages = (): PokemonStages => ({ atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
+
+const STAGE_STATS: { key: keyof PokemonStages; label: string }[] = [
+  { key: 'atk', label: 'Atk' },
+  { key: 'def', label: 'Def' },
+  { key: 'spa', label: 'SpA' },
+  { key: 'spd', label: 'SpD' },
+  { key: 'spe', label: 'Spe' },
+];
 
 // ── Weather config ────────────────────────────────────────────────────────
 
@@ -121,9 +129,9 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
   const [weather, setWeather]           = useState<Weather>('none');
   const [activeId, setActiveId]         = useState<string>('');
 
-  // Stat stages: our leads → offensive (Atk/SpA); their leads → defensive (Def/SpD)
-  const [ourStages,   setOurStages]   = useState<Map<string, OurStage>>(new Map());
-  const [theirStages, setTheirStages] = useState<Map<number, TheirStage>>(new Map());
+  // All 5 stat stages for every Pokémon on the field
+  const [ourStages,   setOurStages]   = useState<Map<string, PokemonStages>>(new Map());
+  const [theirStages, setTheirStages] = useState<Map<number, PokemonStages>>(new Map());
 
   useEffect(() => {
     if (ourLeads.length === 0 || theirLeads.length === 0) { setLoading(false); return; }
@@ -150,26 +158,26 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
 
   // ── Stage helpers ─────────────────────────────────────────────────────
 
-  const getOurS  = (id: string)  => ourStages.get(id)  ?? { atk: 0, spa: 0 };
-  const getTheirS = (i: number)  => theirStages.get(i) ?? { def: 0, spd: 0 };
+  const getOurS   = (id: string) => ourStages.get(id)   ?? defaultStages();
+  const getTheirS = (i: number)  => theirStages.get(i)  ?? defaultStages();
 
-  function adjustOurS(id: string, stat: 'atk' | 'spa', delta: number) {
+  function adjustOurS(id: string, stat: keyof PokemonStages, delta: number) {
     setOurStages(prev => {
-      const m = new Map(prev); const cur = m.get(id) ?? { atk: 0, spa: 0 };
+      const m = new Map(prev); const cur = m.get(id) ?? defaultStages();
       m.set(id, { ...cur, [stat]: Math.max(-6, Math.min(6, cur[stat] + delta)) }); return m;
     });
   }
-  function resetOurS(id: string, stat: 'atk' | 'spa') {
-    setOurStages(prev => { const m = new Map(prev); const cur = m.get(id) ?? { atk: 0, spa: 0 }; m.set(id, { ...cur, [stat]: 0 }); return m; });
+  function resetOurS(id: string, stat: keyof PokemonStages) {
+    setOurStages(prev => { const m = new Map(prev); const cur = m.get(id) ?? defaultStages(); m.set(id, { ...cur, [stat]: 0 }); return m; });
   }
-  function adjustTheirS(i: number, stat: 'def' | 'spd', delta: number) {
+  function adjustTheirS(i: number, stat: keyof PokemonStages, delta: number) {
     setTheirStages(prev => {
-      const m = new Map(prev); const cur = m.get(i) ?? { def: 0, spd: 0 };
+      const m = new Map(prev); const cur = m.get(i) ?? defaultStages();
       m.set(i, { ...cur, [stat]: Math.max(-6, Math.min(6, cur[stat] + delta)) }); return m;
     });
   }
-  function resetTheirS(i: number, stat: 'def' | 'spd') {
-    setTheirStages(prev => { const m = new Map(prev); const cur = m.get(i) ?? { def: 0, spd: 0 }; m.set(i, { ...cur, [stat]: 0 }); return m; });
+  function resetTheirS(i: number, stat: keyof PokemonStages) {
+    setTheirStages(prev => { const m = new Map(prev); const cur = m.get(i) ?? defaultStages(); m.set(i, { ...cur, [stat]: 0 }); return m; });
   }
 
   // ── Damage calculation (reactive to weather + stages) ────────────────
@@ -192,8 +200,8 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
           const defS = theirStages.get(di) ?? { def: 0, spd: 0 };
           const res = calcDamage(
             attackerSnap, fm.move, opp.snapshot, weather,
-            { atk: atkS.atk, spa: atkS.spa, def: 0, spd: 0 },
-            { atk: 0, spa: 0, def: defS.def, spd: defS.spd },
+            atkS,  // uses .atk or .spa depending on move category
+            defS,  // uses .def or .spd depending on move category
           );
           return { defender: opp, minPct: res.minPct, maxPct: res.maxPct, effectiveness: res.effectiveness, stab: res.stab };
         });
@@ -287,9 +295,9 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
 
         <div className="grid md:grid-cols-2 gap-5">
 
-          {/* Our leads — offensive stages */}
+          {/* Our leads — all 5 stages */}
           <div>
-            <p className="text-xs text-blue-300 font-semibold mb-3">Your Leads — Offense</p>
+            <p className="text-xs text-blue-300 font-semibold mb-3">Your Leads</p>
             <div className="space-y-4">
               {ourLeads.map(lead => {
                 const s = getOurS(lead.id);
@@ -301,16 +309,13 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
                         {lead.nickname || lead.pokemon.name.replace(/-/g, ' ')}
                       </p>
                       <div className="space-y-1.5">
-                        <StageControl label="Atk" stage={s.atk}
-                          onDec={() => adjustOurS(lead.id, 'atk', -1)}
-                          onInc={() => adjustOurS(lead.id, 'atk',  1)}
-                          onReset={() => resetOurS(lead.id, 'atk')}
-                        />
-                        <StageControl label="SpA" stage={s.spa}
-                          onDec={() => adjustOurS(lead.id, 'spa', -1)}
-                          onInc={() => adjustOurS(lead.id, 'spa',  1)}
-                          onReset={() => resetOurS(lead.id, 'spa')}
-                        />
+                        {STAGE_STATS.map(({ key, label }) => (
+                          <StageControl key={key} label={label} stage={s[key]}
+                            onDec={() => adjustOurS(lead.id, key, -1)}
+                            onInc={() => adjustOurS(lead.id, key,  1)}
+                            onReset={() => resetOurS(lead.id, key)}
+                          />
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -319,9 +324,9 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
             </div>
           </div>
 
-          {/* Their leads — defensive stages */}
+          {/* Their leads — all 5 stages */}
           <div>
-            <p className="text-xs text-red-300 font-semibold mb-3">Their Leads — Defense</p>
+            <p className="text-xs text-red-300 font-semibold mb-3">Their Leads</p>
             <div className="space-y-4">
               {theirLeads.map((opp, i) => {
                 const s = getTheirS(i);
@@ -333,16 +338,13 @@ export function MoveAdvisor({ ourLeads, theirLeads, onBack, onReset }: Props) {
                         {opp.pokemon.name.replace(/-/g, ' ')}
                       </p>
                       <div className="space-y-1.5">
-                        <StageControl label="Def" stage={s.def}
-                          onDec={() => adjustTheirS(i, 'def', -1)}
-                          onInc={() => adjustTheirS(i, 'def',  1)}
-                          onReset={() => resetTheirS(i, 'def')}
-                        />
-                        <StageControl label="SpD" stage={s.spd}
-                          onDec={() => adjustTheirS(i, 'spd', -1)}
-                          onInc={() => adjustTheirS(i, 'spd',  1)}
-                          onReset={() => resetTheirS(i, 'spd')}
-                        />
+                        {STAGE_STATS.map(({ key, label }) => (
+                          <StageControl key={key} label={label} stage={s[key]}
+                            onDec={() => adjustTheirS(i, key, -1)}
+                            onInc={() => adjustTheirS(i, key,  1)}
+                            onReset={() => resetTheirS(i, key)}
+                          />
+                        ))}
                       </div>
                     </div>
                   </div>
