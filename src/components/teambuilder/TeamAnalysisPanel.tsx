@@ -1,23 +1,18 @@
 import type { Team, VGCRole } from '../../store/teamStore';
 import { getTeamWeaknessMatrix } from '../../utils/typeChart';
-import { TYPE_COLORS } from '../../utils/typeColors';
+import { TYPE_COLORS, TYPE_CODES } from '../../utils/typeColors';
 import { teamToShowdown } from '../../utils/showdownExport';
 import { calcStat, STAT_API_TO_KEY } from '../../utils/statCalc';
 import { isChampionsEligible } from '../../utils/championsRoster';
 
 const VGC_CORE_ROLES: VGCRole[] = [
-  'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
-  'Redirector', 'Speed Control',
+  'Fake Out', 'Tailwind Setter', 'Trick Room Setter', 'Redirector', 'Speed Control',
 ];
-
 const CHAMPIONS_CORE_ROLES: VGCRole[] = [
-  'Fake Out', 'Tailwind Setter', 'Trick Room Setter',
-  'Redirector', 'Pivot', 'Speed Control',
+  'Fake Out', 'Tailwind Setter', 'Trick Room Setter', 'Redirector', 'Pivot', 'Speed Control',
 ];
 
-interface Props {
-  team: Team;
-}
+interface Props { team: Team; }
 
 export function TeamAnalysisPanel({ team }: Props) {
   const isChampions = team.format === 'Pokémon Champions';
@@ -26,11 +21,11 @@ export function TeamAnalysisPanel({ team }: Props) {
   const presentRoles = new Set(team.members.map(m => m.role));
   const coreRoles = isChampions ? CHAMPIONS_CORE_ROLES : VGC_CORE_ROLES;
   const missingRoles = coreRoles.filter(r => !presentRoles.has(r));
-
   const restrictedCount = team.members.filter(m => m.isRestricted).length;
   const restrictedOk = restrictedCount <= 2;
+  const ineligible = isChampions ? team.members.filter(m => !isChampionsEligible(m.pokemon.name)) : [];
+  const offensiveTypes = [...new Set(team.members.flatMap(m => m.pokemon.types))];
 
-  // Calculated speed tiers using EVs / IVs / Nature
   const speedTiers = [...team.members]
     .map(m => {
       const baseSpe = m.pokemon.stats.find(s => s.name === 'speed')?.base ?? 0;
@@ -39,118 +34,103 @@ export function TeamAnalysisPanel({ team }: Props) {
     })
     .sort((a, b) => b.spe - a.spe);
 
-  // Champions eligibility check
-  const ineligible = isChampions
-    ? team.members.filter(m => !isChampionsEligible(m.pokemon.name))
-    : [];
-
-  // Offensive type coverage (unique types the team can hit)
-  const offensiveTypes = [...new Set(team.members.flatMap(m => m.pokemon.types))];
-
-  function copyShowdown() {
-    navigator.clipboard.writeText(teamToShowdown(team.members));
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Format Info */}
-      <div className={`rounded-2xl p-4 border ${isChampions ? 'bg-blue-950/40 border-blue-700/50' : 'bg-gray-800 border-gray-700'}`}>
-        <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-2">Format</h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-white font-semibold">{team.format}</p>
-          {isChampions && (
-            <span className="text-xs bg-blue-600/30 text-blue-300 border border-blue-600/40 px-2 py-0.5 rounded-full font-bold">
-              Champions
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Format */}
+      <div className="panel">
+        <div className="panel-head">
+          <span className="dot" />
+          <h3>Format</h3>
+        </div>
+        <div style={{ padding: '10px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span className="hud-title" style={{ fontSize: 12 }}>{team.format}</span>
+            {isChampions && <span className="tag tag-cyan">CHAMP</span>}
+          </div>
+          {isChampions ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--green)' }}>✓ No restricted Pokémon</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--green)' }}>✓ Standard 6-member roster</span>
+            </div>
+          ) : (
+            <span className="mono" style={{ fontSize: 10, color: restrictedOk ? 'var(--green)' : 'var(--accent)' }}>
+              {restrictedCount}/2 restricted{!restrictedOk ? ' — EXCEEDS LIMIT' : ''}
             </span>
           )}
         </div>
-
-        {isChampions ? (
-          <div className="mt-2 space-y-1 text-xs">
-            <p className="text-blue-300">✓ No restricted Pokémon</p>
-            <p className="text-blue-300">✓ Standard team of 6</p>
-            <p className="text-blue-300">✓ Curated Pokémon pool</p>
-          </div>
-        ) : (
-          <div className={`mt-2 text-xs font-medium ${restrictedOk ? 'text-green-400' : 'text-red-400'}`}>
-            {restrictedCount}/2 Restricted slots used
-            {!restrictedOk && ' — exceeds limit!'}
-          </div>
-        )}
       </div>
 
-      {/* Champions eligibility violations */}
+      {/* Ineligible warning */}
       {isChampions && ineligible.length > 0 && (
-        <div className="bg-red-900/30 rounded-2xl p-4 border border-red-700/50">
-          <h3 className="text-xs text-red-400 uppercase font-bold tracking-wider mb-2">Not in Roster</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="panel" style={{ borderColor: 'var(--accent)' }}>
+          <div className="panel-head" style={{ borderColor: 'var(--accent)' }}>
+            <span className="dot" />
+            <h3 style={{ color: 'var(--accent)' }}>Not in Roster</h3>
+          </div>
+          <div style={{ padding: '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {ineligible.map(m => (
-              <span key={m.id} className="px-2 py-0.5 bg-red-800/50 text-red-300 rounded-lg text-xs capitalize">
+              <span key={m.id} className="tag" style={{ color: 'var(--accent)', borderColor: 'var(--accent)', background: 'var(--accent-soft)', textTransform: 'capitalize' }}>
                 {m.pokemon.name.replace(/-/g, ' ')}
               </span>
             ))}
           </div>
-          <p className="text-xs text-red-500 mt-2">Remove these before submitting to ranked.</p>
         </div>
       )}
 
-      {/* Missing Roles */}
+      {/* Missing roles */}
       {missingRoles.length > 0 && (
-        <div className="bg-yellow-900/30 rounded-2xl p-4 border border-yellow-700/50">
-          <h3 className="text-xs text-yellow-400 uppercase font-bold tracking-wider mb-2">Missing Roles</h3>
-          <div className="flex flex-wrap gap-1.5">
-            {missingRoles.map(r => (
-              <span key={r} className="px-2 py-0.5 bg-yellow-800/50 text-yellow-300 rounded-lg text-xs">
-                {r}
-              </span>
-            ))}
+        <div className="panel" style={{ borderColor: 'rgba(255,179,0,.4)' }}>
+          <div className="panel-head">
+            <span className="dot" style={{ background: 'var(--amber)' }} />
+            <h3>Missing Roles</h3>
+          </div>
+          <div style={{ padding: '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {missingRoles.map(r => <span key={r} className="tag tag-amber">{r}</span>)}
           </div>
         </div>
       )}
 
-      {/* Calculated Speed Tiers */}
+      {/* Speed tiers */}
       {speedTiers.length > 0 && (
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
-          <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">
-            Speed Tiers <span className="text-gray-600 normal-case font-normal">(Lv.50, with EVs)</span>
-          </h3>
-          <div className="space-y-1.5">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="dot" />
+            <h3>Speed Tiers · Lv.50</h3>
+          </div>
+          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {speedTiers.map(s => (
-              <div key={s.name} className="flex items-center gap-2">
-                <span className="text-xs text-gray-300 capitalize w-28 truncate">{s.name.replace(/-/g, ' ')}</span>
-                <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-pink-400 rounded-full"
-                    style={{ width: `${Math.min((s.spe / 350) * 100, 100)}%` }}
-                  />
+              <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-1)', width: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+                  {s.name.replace(/-/g, ' ')}
+                </span>
+                <div className="stat-bar" style={{ flex: 1 }}>
+                  <i style={{ width: `${Math.min((s.spe / 350) * 100, 100)}%`, background: '#FA92B2' }} />
                 </div>
-                <span className="text-xs text-pink-300 font-mono w-8 text-right">{s.spe}</span>
+                <span className="mono" style={{ fontSize: 10, color: '#FA92B2', width: 26, textAlign: 'right' }}>{s.spe}</span>
               </div>
             ))}
+            <span className="mono" style={{ fontSize: 9, color: 'var(--text-3)' }}>Tailwind ×2 · TR reverses</span>
           </div>
-          <p className="text-gray-600 text-xs mt-2">
-            Tailwind ×2 · Trick Room reverses order
-          </p>
         </div>
       )}
 
-      {/* Team Weaknesses */}
+      {/* Team weaknesses */}
       {Object.keys(weakMatrix).length > 0 && (
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
-          <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Team Weaknesses</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="dot" />
+            <h3>Team Weaknesses</h3>
+          </div>
+          <div style={{ padding: '10px 12px', display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {Object.entries(weakMatrix)
               .sort((a, b) => b[1] - a[1])
               .map(([type, count]) => {
-                const colors = TYPE_COLORS[type] ?? { bg: '#555', text: '#fff' };
+                const color = TYPE_COLORS[type]?.bg ?? '#545b73';
+                const code = TYPE_CODES[type] ?? type.slice(0, 2).toUpperCase();
                 return (
-                  <div
-                    key={type}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ background: colors.bg, color: colors.text }}
-                  >
-                    <span className="capitalize">{type}</span>
-                    <span className="opacity-75">×{count}</span>
+                  <div key={type} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', background: color + '22', border: `1px solid ${color}55` }}>
+                    <span className="mono" style={{ fontSize: 9, color }}>{code}</span>
+                    <span className="mono" style={{ fontSize: 9, color, opacity: 0.7 }}>×{count}</span>
                   </div>
                 );
               })}
@@ -158,20 +138,20 @@ export function TeamAnalysisPanel({ team }: Props) {
         </div>
       )}
 
-      {/* Offensive Coverage */}
+      {/* Offensive coverage */}
       {offensiveTypes.length > 0 && (
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
-          <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">Type Coverage</h3>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="dot" />
+            <h3>Type Coverage</h3>
+          </div>
+          <div style={{ padding: '10px 12px', display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {offensiveTypes.map(type => {
-              const colors = TYPE_COLORS[type] ?? { bg: '#555', text: '#fff' };
+              const color = TYPE_COLORS[type.toLowerCase()]?.bg ?? '#545b73';
+              const code = TYPE_CODES[type.toLowerCase()] ?? type.slice(0, 2).toUpperCase();
               return (
-                <span
-                  key={type}
-                  className="px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
-                  style={{ background: colors.bg, color: colors.text }}
-                >
-                  {type}
+                <span key={type} className="mono" style={{ fontSize: 9, color, padding: '2px 6px', background: color + '22', border: `1px solid ${color}44` }}>
+                  {code}
                 </span>
               );
             })}
@@ -179,13 +159,14 @@ export function TeamAnalysisPanel({ team }: Props) {
         </div>
       )}
 
-      {/* Export */}
+      {/* Showdown export */}
       {team.members.length > 0 && (
         <button
-          onClick={copyShowdown}
-          className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors"
+          className="btn"
+          onClick={() => navigator.clipboard.writeText(teamToShowdown(team.members))}
+          style={{ width: '100%', padding: '8px', fontSize: 11 }}
         >
-          Copy Showdown Export
+          ⎘ COPY SHOWDOWN EXPORT
         </button>
       )}
     </div>

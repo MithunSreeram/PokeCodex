@@ -1,5 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ── Design tokens ─────────────────────────────────────────────────────── */
 :root {
-  color-scheme: light dark;
+  --bg-0: #07080b;
+  --bg-1: #0c0e14;
+  --bg-2: #131722;
+  --bg-3: #1a1f2c;
+  --line: #232938;
+  --line-soft: #1a1f2c;
+  --line-hard: #2e3548;
+  --text-0: #f0f3fa;
+  --text-1: #c2c8d6;
+  --text-2: #8088a0;
+  --text-3: #545b73;
+  --accent: #ff2d3a;
+  --accent-soft: rgba(255, 45, 58, 0.13);
+  --accent-glow: rgba(255, 45, 58, 0.35);
+  --cyan: #2bd9ff;
+  --green: #2bff8e;
+  --amber: #ffb300;
+  --champ: #2b7eff;
+  --gap: 8px;
+  --row-h: 24px;
+  --pad: 10px;
+  color-scheme: dark;
 }
+
+/* ── Reset & base ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-family: 'Chakra Petch', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Background effect ────────────────────────────────────────────────── */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(255,45,58,.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(43,217,255,.06), transparent 60%);
+}
+.app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+/* ── Layout wrappers ──────────────────────────────────────────────────── */
+.wrap-wide {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ── Navigation ───────────────────────────────────────────────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(7, 8, 11, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ── Angular clip shapes ──────────────────────────────────────────────── */
+.clip-tab {
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.clip-card {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+/* ── Panel component ──────────────────────────────────────────────────── */
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  position: relative;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+  pointer-events: none;
+}
+.panel::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  pointer-events: none;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to bottom, rgba(255,255,255,.02), transparent);
+}
+.panel-head h3 {
+  margin: 0;
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-1);
+}
+.panel-head .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 0;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ── Typography ───────────────────────────────────────────────────────── */
+.hud-label {
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--text-2);
+}
+.hud-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  appearance: none;
+  border: 1px solid var(--line-hard);
+  background: var(--bg-2);
+  color: var(--text-1);
+  padding: 6px 12px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .12s;
+}
+.btn:hover {
+  border-color: var(--text-2);
+  color: var(--text-0);
+}
+.btn-primary {
+  background: var(--accent);
+  color: #0a0b0e;
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: #ff4a55;
+  border-color: #ff4a55;
+  color: #0a0b0e;
+}
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────── */
+.ipt {
+  appearance: none;
+  border: 1px solid var(--line-hard);
+  background: var(--bg-0);
+  color: var(--text-0);
+  padding: 6px 10px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+}
+.ipt:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.ipt::placeholder { color: var(--text-3); }
+
+select.ipt {
+  cursor: pointer;
+}
+
+/* ── Segmented control ────────────────────────────────────────────────── */
+.seg {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line-hard);
+}
+.seg button {
+  appearance: none;
+  border: 0;
+  border-right: 1px solid var(--line-hard);
+  background: var(--bg-2);
+  color: var(--text-2);
+  padding: 4px 10px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .1s;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { color: var(--text-0); background: var(--bg-3); }
+.seg button.active { background: var(--accent); color: #000; }
+
+/* ── Pill toggle ──────────────────────────────────────────────────────── */
+.pill {
+  appearance: none;
+  border: 1px solid var(--line-hard);
+  background: var(--bg-2);
+  color: var(--text-2);
+  padding: 3px 8px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .1s;
+}
+.pill:hover { color: var(--text-0); border-color: var(--text-2); }
+.pill.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.pill.champ.active { background: rgba(43,126,255,.15); border-color: var(--champ); color: var(--champ); }
+
+/* ── Tags ─────────────────────────────────────────────────────────────── */
+.tag {
+  display: inline-block;
+  border: 1px solid var(--line-hard);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-family: 'Chakra Petch', sans-serif;
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+}
+.tag-cyan { border-color: rgba(43,217,255,.4); background: rgba(43,217,255,.08); color: var(--cyan); }
+.tag-green { border-color: rgba(43,255,142,.4); background: rgba(43,255,142,.08); color: var(--green); }
+.tag-amber { border-color: rgba(255,179,0,.4); background: rgba(255,179,0,.08); color: var(--amber); }
+
+/* ── Stat bar ─────────────────────────────────────────────────────────── */
+.stat-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-3);
+  position: relative;
+  overflow: hidden;
+}
+.stat-bar i {
+  display: block;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────── */
+@keyframes pulse-tick {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.pulse-tick { animation: pulse-tick 2s ease-in-out infinite; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-0); }
+::-webkit-scrollbar-thumb { background: var(--line-hard); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }

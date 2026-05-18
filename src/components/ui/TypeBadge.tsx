@@ -1,4 +1,4 @@
-import { TYPE_COLORS } from '../../utils/typeColors';
+import { TYPE_COLORS, TYPE_CODES } from '../../utils/typeColors';
 
 interface Props {
   type: string;
@@ -6,14 +6,44 @@ interface Props {
 }
 
 export function TypeBadge({ type, size = 'md' }: Props) {
-  const colors = TYPE_COLORS[type] ?? { bg: '#888', text: '#fff' };
-  const sizeClass = size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-sm px-3 py-1';
+  const key = type.toLowerCase();
+  const colors = TYPE_COLORS[key] ?? { bg: '#545b73', text: '#fff' };
+  const code = TYPE_CODES[key] ?? type.slice(0, 2).toUpperCase();
+
+  if (size === 'sm') {
+    return (
+      <span
+        className="mono"
+        style={{
+          display: 'inline-block',
+          background: colors.bg + '22',
+          border: `1px solid ${colors.bg}66`,
+          color: colors.bg,
+          fontSize: 9,
+          letterSpacing: '.06em',
+          padding: '1px 5px',
+        }}
+      >
+        {code}
+      </span>
+    );
+  }
+
   return (
     <span
-      className={`inline-block rounded-full font-semibold uppercase tracking-wide ${sizeClass}`}
-      style={{ background: colors.bg, color: colors.text }}
+      className="mono"
+      style={{
+        display: 'inline-block',
+        background: colors.bg + '28',
+        border: `1px solid ${colors.bg}55`,
+        color: colors.bg,
+        fontSize: 10,
+        letterSpacing: '.06em',
+        padding: '2px 6px',
+        textTransform: 'uppercase',
+      }}
     >
-      {type}
+      {code}
     </span>
   );
 }

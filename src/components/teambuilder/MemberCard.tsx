@@ -32,7 +32,6 @@ export function MemberCard({ member, teamId, format }: Props) {
 
   const [abilityDesc, setAbilityDesc] = useState('');
 
-  // Fetch ability description on mount / ability change
   useEffect(() => {
     let cancelled = false;
     setAbilityDesc('');
@@ -43,9 +42,7 @@ export function MemberCard({ member, teamId, format }: Props) {
     return () => { cancelled = true; };
   }, [member.ability]);
 
-  function patch(p: Partial<TeamMember>) {
-    updateMember(teamId, member.id, p);
-  }
+  function patch(p: Partial<TeamMember>) { updateMember(teamId, member.id, p); }
 
   const evTotal     = Object.values(member.evs).reduce((a, b) => a + b, 0);
   const evRemaining = 510 - evTotal;
@@ -54,76 +51,74 @@ export function MemberCard({ member, teamId, format }: Props) {
   function setEV(key: keyof TeamMember['evs'], raw: string) {
     patch({ evs: clampEV(member.evs, key, parseInt(raw) || 0) });
   }
-
   function setIV(key: keyof TeamMember['ivs'], raw: string) {
     const val = Math.max(0, Math.min(31, parseInt(raw) || 0));
     patch({ ivs: { ...member.ivs, [key]: val } });
   }
-
   function setMove(index: number, slug: string) {
     const moves = [...member.moves] as [string, string, string, string];
     moves[index] = slug;
     patch({ moves });
   }
 
-  function copyShowdown() {
-    navigator.clipboard.writeText(memberToShowdown(member));
-  }
-
-  // Role filtering — eligible roles first, others below
   const eligibleRoles = getEligibleRoles(member.pokemon);
   const otherRoles    = ALL_ROLES.filter(r => !eligibleRoles.includes(r));
   const roleIsValid   = eligibleRoles.includes(member.role);
 
+  const ipt: React.CSSProperties = {
+    appearance: 'none', border: '1px solid var(--line-hard)', background: 'var(--bg-0)',
+    color: 'var(--text-0)', padding: '4px 8px', fontFamily: 'Chakra Petch', fontSize: 11,
+    width: '100%', outline: 'none',
+  };
+
   return (
-    <div className={`bg-gray-800/80 rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/40 hover:-translate-y-0.5 ${eligible ? 'border-gray-700' : 'border-red-700/60'}`}>
+    <div className="panel" style={{ border: eligible ? '1px solid var(--line)' : '1px solid var(--accent)' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-gray-700/60 bg-gray-800">
-        <img src={artwork ?? ''} alt={member.pokemon.name} className="w-12 h-12 object-contain" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="font-bold text-white capitalize text-sm truncate">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid var(--line)', background: 'var(--bg-2)' }}>
+        <img src={artwork ?? ''} alt={member.pokemon.name} style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="hud-title" style={{ fontSize: 12, textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {member.pokemon.name.replace(/-/g, ' ')}
-            </p>
-            {isChampions && !eligible && (
-              <span className="text-xs bg-red-900/60 text-red-400 border border-red-700 px-1.5 rounded font-bold shrink-0">
-                Not eligible
-              </span>
-            )}
+            </span>
+            {isChampions && !eligible && <span className="tag" style={{ color: 'var(--accent)', borderColor: 'var(--accent)', background: 'var(--accent-soft)' }}>INELIGIBLE</span>}
           </div>
-          <div className="flex gap-1 mt-0.5">
+          <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
             {member.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
           <button
             onClick={() => removeMember(teamId, member.id)}
-            className="text-gray-500 hover:text-red-400 text-lg leading-none transition-colors"
-            title="Remove"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-3)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >×</button>
           <button
-            onClick={copyShowdown}
-            className="text-gray-600 hover:text-indigo-400 text-xs leading-none transition-colors"
+            onClick={() => navigator.clipboard.writeText(memberToShowdown(member))}
+            style={{ background: 'transparent', border: 0, color: 'var(--text-3)', cursor: 'pointer', fontSize: 11, lineHeight: 1, padding: 0 }}
             title="Copy Showdown export"
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--cyan)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
           >⎘</button>
         </div>
       </div>
 
-      <div className="p-3 space-y-2 text-xs">
+      <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
         {/* Nickname */}
         <input
           placeholder="Nickname"
           value={member.nickname}
           onChange={e => patch({ nickname: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
+          style={ipt}
         />
 
-        {/* Role selector — eligible roles grouped first */}
+        {/* Role */}
         <div>
           <select
             value={member.role}
             onChange={e => patch({ role: e.target.value as VGCRole })}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+            style={ipt}
           >
             {eligibleRoles.length > 0 && (
               <optgroup label="✦ Fits this Pokémon">
@@ -137,128 +132,84 @@ export function MemberCard({ member, teamId, format }: Props) {
             )}
           </select>
           {member.role && (
-            <p
-              className={`mt-0.5 pl-0.5 ${roleIsValid ? 'text-green-600' : eligibleRoles.length > 0 ? 'text-yellow-600' : 'text-gray-600'}`}
-              style={{ fontSize: '10px' }}
-            >
-              {roleIsValid
-                ? '✓ This Pokémon can fill this role'
-                : eligibleRoles.length > 0
-                  ? `⚠ Suggested: ${eligibleRoles[0]}`
-                  : ''}
+            <p style={{ margin: '2px 0 0', fontSize: 9, paddingLeft: 2, color: roleIsValid ? 'var(--green)' : eligibleRoles.length > 0 ? 'var(--amber)' : 'var(--text-3)' }}>
+              {roleIsValid ? '✓ Role confirmed' : eligibleRoles.length > 0 ? `⚠ Suggested: ${eligibleRoles[0]}` : ''}
             </p>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {/* Nature */}
-          <select
-            value={member.nature}
-            onChange={e => patch({ nature: e.target.value as TeamMember['nature'] })}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white focus:outline-none focus:border-red-500 transition-colors"
-          >
+        {/* Nature + Ability */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <select value={member.nature} onChange={e => patch({ nature: e.target.value as TeamMember['nature'] })} style={ipt}>
             {NATURES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-
-          {/* Ability */}
-          <select
-            value={member.ability}
-            onChange={e => patch({ ability: e.target.value })}
-            className="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white capitalize focus:outline-none focus:border-red-500 transition-colors"
-          >
+          <select value={member.ability} onChange={e => patch({ ability: e.target.value })} style={{ ...ipt, textTransform: 'capitalize' }}>
             {member.pokemon.abilities.map(a => (
-              <option key={a.name} value={a.name}>
-                {a.name.replace(/-/g, ' ')}{a.isHidden ? ' (HA)' : ''}
-              </option>
+              <option key={a.name} value={a.name}>{a.name.replace(/-/g, ' ')}{a.isHidden ? ' (HA)' : ''}</option>
             ))}
           </select>
         </div>
 
         {/* Ability description */}
-        <p
-          className={`pl-1 leading-relaxed transition-all duration-300 ${abilityDesc ? 'text-gray-500' : 'text-gray-700 animate-pulse'}`}
-          style={{ fontSize: '10px', minHeight: '14px' }}
-        >
-          {abilityDesc || (member.ability ? 'Loading ability…' : '')}
+        <p style={{ margin: 0, fontSize: 10, lineHeight: 1.5, color: abilityDesc ? 'var(--text-3)' : 'var(--line-hard)', minHeight: 14 }}>
+          {abilityDesc || (member.ability ? 'Loading…' : '')}
         </p>
 
-        {/* Item */}
-        <input
-          placeholder="Held item"
-          value={member.item}
-          onChange={e => patch({ item: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
-        />
-
-        {/* Tera Type */}
-        <input
-          placeholder="Tera Type"
-          value={member.teraType}
-          onChange={e => patch({ teraType: e.target.value })}
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white placeholder-gray-600 capitalize focus:outline-none focus:border-red-500 transition-colors"
-        />
+        {/* Item + Tera */}
+        <input placeholder="Held item" value={member.item} onChange={e => patch({ item: e.target.value })} style={ipt} />
+        <input placeholder="Tera Type" value={member.teraType} onChange={e => patch({ teraType: e.target.value })} style={{ ...ipt, textTransform: 'capitalize' }} />
 
         {/* Moves */}
-        <div className="space-y-1">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {member.moves.map((mv, i) => (
-            <MoveInput
-              key={i}
-              value={mv}
-              onChange={slug => setMove(i, slug)}
-              legalMoves={member.pokemon.moves}
-              placeholder={`Move ${i + 1}`}
-            />
+            <MoveInput key={i} value={mv} onChange={slug => setMove(i, slug)} legalMoves={member.pokemon.moves} placeholder={`Move ${i + 1}`} />
           ))}
         </div>
 
         {/* EV / IV Editor */}
-        <div className="pt-1 border-t border-gray-700/60">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-gray-500 uppercase tracking-wider font-bold" style={{ fontSize: '10px' }}>EVs / IVs</span>
-            <span
-              className={`font-mono font-bold transition-colors ${evRemaining < 0 ? 'text-red-400' : evRemaining === 0 ? 'text-green-400' : 'text-gray-500'}`}
-              style={{ fontSize: '10px' }}
-            >
-              {evRemaining} EVs left
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span className="hud-label" style={{ fontSize: 9 }}>EVs / IVs</span>
+            <span className="mono" style={{ fontSize: 9, color: evRemaining < 0 ? 'var(--accent)' : evRemaining === 0 ? 'var(--green)' : 'var(--text-3)' }}>
+              {evRemaining} left
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px 6px' }}>
             {STAT_ORDER.map(({ key, apiName, label }) => {
-              const base          = member.pokemon.stats.find(s => s.name === apiName)?.base ?? 0;
-              const calc          = calcStat(base, member.evs[key], member.ivs[key], member.nature, key);
-              const isUp          = natureUp   === key;
-              const isDown        = natureDown === key;
+              const base = member.pokemon.stats.find(s => s.name === apiName)?.base ?? 0;
+              const calc = calcStat(base, member.evs[key], member.ivs[key], member.nature, key);
+              const isUp   = natureUp   === key;
+              const isDown = natureDown === key;
               const ivNonStandard = member.ivs[key] < 31;
               return (
-                <div key={key} className="flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className={`font-bold ${isUp ? 'text-red-400' : isDown ? 'text-blue-400' : 'text-gray-500'}`} style={{ fontSize: '9px' }}>{label}</span>
-                    <span className="text-gray-200 font-mono" style={{ fontSize: '9px' }}>{calc}</span>
+                <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="hud-label" style={{ fontSize: 8, color: isUp ? 'var(--accent)' : isDown ? 'var(--cyan)' : 'var(--text-3)' }}>{label}</span>
+                    <span className="mono" style={{ fontSize: 9, color: 'var(--text-1)' }}>{calc}</span>
                   </div>
                   <input type="number" min={0} max={252} step={4} value={member.evs[key]}
                     onChange={e => setEV(key, e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded px-1 text-white text-center font-mono focus:outline-none focus:border-red-500"
-                    style={{ fontSize: '11px', height: '22px' }}
+                    style={{ ...ipt, textAlign: 'center', height: 22, fontSize: 10, padding: '0 2px' }}
                   />
                   <input type="number" min={0} max={31} value={member.ivs[key]}
                     onChange={e => setIV(key, e.target.value)}
-                    className={`w-full bg-gray-900 border rounded px-1 text-center font-mono focus:outline-none focus:border-red-500 ${ivNonStandard ? 'border-yellow-700 text-yellow-400' : 'border-gray-700 text-gray-600'}`}
-                    style={{ fontSize: '10px', height: '18px' }}
+                    style={{ ...ipt, textAlign: 'center', height: 18, fontSize: 9, padding: '0 2px', color: ivNonStandard ? 'var(--amber)' : 'var(--text-3)', borderColor: ivNonStandard ? 'rgba(255,179,0,.5)' : 'var(--line)' }}
                   />
                 </div>
               );
             })}
           </div>
-          <div className="flex justify-between mt-1" style={{ fontSize: '9px', color: '#4b5563' }}>
-            <span>top = EVs (0–252)</span><span>bottom = IVs (0–31)</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <span className="mono" style={{ fontSize: 8, color: 'var(--text-3)' }}>top = EVs</span>
+            <span className="mono" style={{ fontSize: 8, color: 'var(--text-3)' }}>bottom = IVs</span>
           </div>
         </div>
 
-        {/* Restricted toggle — VGC only */}
+        {/* Restricted toggle */}
         {!isChampions && (
-          <label className="flex items-center gap-2 cursor-pointer pt-1">
-            <input type="checkbox" checked={member.isRestricted} onChange={e => patch({ isRestricted: e.target.checked })} className="accent-red-500" />
-            <span className="text-gray-400">Restricted Legendary</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', paddingTop: 4 }}>
+            <input type="checkbox" checked={member.isRestricted} onChange={e => patch({ isRestricted: e.target.checked })} style={{ accentColor: 'var(--accent)' }} />
+            <span className="hud-label" style={{ fontSize: 9 }}>Restricted Legendary</span>
           </label>
         )}
       </div>

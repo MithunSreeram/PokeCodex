@@ -6,17 +6,7 @@ import { fetchGeneration, searchPokemon } from '../api/pokeapi';
 import type { PokemonListItem, Pokemon } from '../api/pokeapi';
 import { isChampionsEligible } from '../utils/championsRoster';
 
-const GENERATIONS = [
-  { label: 'Gen 1', value: 1 },
-  { label: 'Gen 2', value: 2 },
-  { label: 'Gen 3', value: 3 },
-  { label: 'Gen 4', value: 4 },
-  { label: 'Gen 5', value: 5 },
-  { label: 'Gen 6', value: 6 },
-  { label: 'Gen 7', value: 7 },
-  { label: 'Gen 8', value: 8 },
-  { label: 'Gen 9', value: 9 },
-];
+const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export function PokedexPage() {
   const [list, setList] = useState<PokemonListItem[]>([]);
@@ -60,96 +50,105 @@ export function PokedexPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Hero */}
-      <div className="bg-gradient-to-b from-red-900/30 to-gray-950 py-10 px-4 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">
-          <span className="text-red-500">Poke</span>Codex
-        </h1>
-        <p className="text-gray-400 mt-1">Competitive-grade Pokédex for champion players</p>
+    <div style={{ minHeight: '100vh' }}>
+      {/* Hero banner */}
+      <div style={{ position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)', background: 'linear-gradient(135deg, var(--bg-1), var(--bg-0))', padding: '20px 0' }}>
+        <div className="wrap-wide">
+          <div style={{ position: 'relative' }}>
+            {/* Corner accents */}
+            <div style={{ position: 'absolute', top: -4, left: -4, width: 20, height: 20, borderTop: '1px solid var(--accent)', borderLeft: '1px solid var(--accent)' }} />
+            <div style={{ position: 'absolute', bottom: -4, right: -4, width: 20, height: 20, borderBottom: '1px solid var(--accent)', borderRight: '1px solid var(--accent)' }} />
+            <div className="hud-label" style={{ marginBottom: 4 }}>// THE CODEX — MODULE 01</div>
+            <h1 className="hud-title" style={{ margin: 0, fontSize: 32, lineHeight: 1 }}>
+              <span style={{ color: 'var(--accent)' }}>POKÉ</span>DEX
+              <span style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: 18, marginLeft: 12 }}>/ scouting</span>
+            </h1>
+            <p style={{ color: 'var(--text-2)', margin: '8px 0 0', fontSize: 12, maxWidth: 480 }}>
+              Browse every creature, filter by generation or format. Click any card to drill into stats, abilities, and type matchups.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="sticky top-14 z-40 bg-gray-950/95 backdrop-blur border-b border-gray-800 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name or ID..."
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
-          />
-          <div className="flex gap-1 flex-wrap items-center">
-            {/* Champions filter toggle */}
+      {/* Sticky filter bar */}
+      <div style={{ position: 'sticky', top: 48, zIndex: 20, background: 'rgba(7,8,11,.92)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--line)', padding: '10px 0' }}>
+        <div className="wrap-wide">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {/* Search */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line-hard)', background: 'var(--bg-1)', padding: '0 10px', flex: '0 1 260px' }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" style={{ color: 'var(--text-3)', flexShrink: 0 }}>
+                <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M10.5 10.5 L14 14" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+              <input
+                className="ipt"
+                style={{ border: 0, background: 'transparent', padding: '7px 0', fontSize: 11 }}
+                placeholder="Search name or #ID…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+              <span className="mono" style={{ color: 'var(--text-3)', fontSize: 10, flexShrink: 0 }}>{filtered.length}</span>
+            </div>
+
+            {/* Champions toggle */}
             <button
+              className={`pill champ ${championsOnly ? 'active' : ''}`}
               onClick={() => setChampionsOnly(v => !v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 border ${
-                championsOnly
-                  ? 'bg-blue-600 border-blue-500 text-white shadow-sm shadow-blue-900/40'
-                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-              }`}
             >
+              <span style={{ width: 5, height: 5, background: championsOnly ? 'var(--champ)' : 'var(--text-3)', display: 'inline-block', flexShrink: 0 }} />
               Champions
             </button>
 
-            <div className="w-px h-5 bg-gray-700 mx-0.5" />
+            <div style={{ width: 1, height: 16, background: 'var(--line)' }} />
 
-            {GENERATIONS.map(g => (
-              <button
-                key={g.value}
-                onClick={() => { setGen(g.value); setQuery(''); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                  gen === g.value
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:text-white'
-                }`}
-              >
-                {g.label}
-              </button>
-            ))}
+            {/* Gen filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="hud-label">GEN</span>
+              <div className="seg">
+                {GENERATIONS.map(g => (
+                  <button
+                    key={g}
+                    className={gen === g ? 'active' : ''}
+                    onClick={() => { setGen(g); setQuery(''); }}
+                  >
+                    <span className="mono">{g}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Grid */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="wrap-wide" style={{ paddingTop: 20, paddingBottom: 48 }}>
         {loading ? (
-          <div className="flex flex-col items-center gap-4 py-20">
-            <Spinner size={12} />
-            <p className="text-gray-500">Loading Pokémon...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '80px 0' }}>
+            <Spinner size={10} />
+            <span className="hud-label">LOADING POKÉMON…</span>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-4">
-              <p className="text-gray-500 text-sm">{filtered.length} Pokémon</p>
-              {championsOnly && (
-                <span className="text-xs bg-blue-600/20 text-blue-400 border border-blue-700/40 px-2 py-0.5 rounded-full font-bold">
-                  Champions roster
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
               {filtered.map(p => (
                 <PokemonCard key={p.id} pokemon={p} onClick={() => handleCardClick(p)} />
               ))}
             </div>
-            {filtered.length === 0 && !loading && (
-              <div className="text-center py-20 text-gray-500">
-                {query
-                  ? `No Pokémon found for "${query}"`
-                  : championsOnly
-                    ? 'No Champions-eligible Pokémon in this generation'
-                    : 'No Pokémon found'}
+            {filtered.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-3)' }}>
+                <span className="mono" style={{ fontSize: 12 }}>
+                  {query ? `NO RESULTS FOR "${query.toUpperCase()}"` : championsOnly ? 'NO CHAMPIONS IN THIS GEN' : 'NO POKÉMON FOUND'}
+                </span>
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail slide-over loading overlay */}
       {detailLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <Spinner size={12} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(7,8,11,.6)', backdropFilter: 'blur(4px)' }}>
+          <Spinner size={10} />
         </div>
       )}
       {selected && !detailLoading && (

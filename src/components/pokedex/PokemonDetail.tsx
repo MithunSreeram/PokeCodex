@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import type { Pokemon } from '../../api/pokeapi';
 import { fetchAbilityEffect } from '../../api/pokeapi';
 import { TypeBadge } from '../ui/TypeBadge';
-import { StatBar } from '../ui/StatBar';
 import { getDefensiveProfile } from '../../utils/typeChart';
-import { TYPE_COLORS } from '../../utils/typeColors';
+import { TYPE_COLORS, STAT_LABELS } from '../../utils/typeColors';
 import { useTeamStore } from '../../store/teamStore';
 import { isChampionsEligible } from '../../utils/championsRoster';
 import { suggestPrimaryRole } from '../../utils/roleInference';
@@ -18,21 +17,20 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
   const { teams, activeTeamId, addMember, createTeam } = useTeamStore();
   const activeTeam = teams.find(t => t.id === activeTeamId);
   const profile = getDefensiveProfile(pokemon.types);
-  const primaryColor = TYPE_COLORS[pokemon.types[0]]?.bg ?? '#555';
+  const primaryColor = TYPE_COLORS[pokemon.types[0].toLowerCase()]?.bg ?? '#545b73';
   const totalBase = pokemon.stats.reduce((s, st) => s + st.base, 0);
 
   const [shiny, setShiny] = useState(false);
   const [added, setAdded] = useState(false);
   const [abilityEffects, setAbilityEffects] = useState<Record<string, string>>({});
 
-  // Fetch ability descriptions — cancel on unmount or pokemon change
   useEffect(() => {
     let cancelled = false;
     setAbilityEffects({});
     pokemon.abilities.forEach(a => {
       fetchAbilityEffect(a.name)
         .then(effect => { if (!cancelled) setAbilityEffects(prev => ({ ...prev, [a.name]: effect })); })
-        .catch(()  => { if (!cancelled) setAbilityEffects(prev => ({ ...prev, [a.name]: 'No description available.' })); });
+        .catch(() =>    { if (!cancelled) setAbilityEffects(prev => ({ ...prev, [a.name]: 'No description available.' })); });
     });
     return () => { cancelled = true; };
   }, [pokemon.id]);
@@ -41,8 +39,7 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
   const shinyArt  = pokemon.sprites.other?.['official-artwork']?.front_shiny   ?? pokemon.sprites.front_shiny;
   const artwork   = shiny && shinyArt ? shinyArt : normalArt;
 
-  const championsIneligible =
-    activeTeam?.format === 'Pokémon Champions' && !isChampionsEligible(pokemon.name);
+  const championsIneligible = activeTeam?.format === 'Pokémon Champions' && !isChampionsEligible(pokemon.name);
   const teamFull = activeTeam ? activeTeam.members.length >= 6 : false;
 
   function handleAddToTeam() {
@@ -62,61 +59,114 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
   const resistances = Object.entries(profile).filter(([, v]) => v < 1 && v > 0).sort((a, b) => a[1] - b[1]);
   const immunities  = Object.entries(profile).filter(([, v]) => v === 0);
 
+  const maxStat = 180;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative bg-gray-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700" onClick={e => e.stopPropagation()}>
-
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,8,11,.75)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'flex-end' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: 520, height: '100%', background: 'var(--bg-1)', borderLeft: '1px solid var(--line)', boxShadow: '-20px 0 60px rgba(0,0,0,.5)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
         {/* Header */}
-        <div className="relative h-48 rounded-t-3xl flex items-end px-6 pb-4" style={{ background: `linear-gradient(135deg, ${primaryColor}55, ${primaryColor}22)` }}>
-          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl leading-none">×</button>
+        <div style={{ position: 'relative', padding: '20px 20px 16px', borderBottom: '1px solid var(--line)', background: `radial-gradient(60% 100% at 30% 0%, ${primaryColor}1c, transparent 70%), var(--bg-1)`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div className="hud-label" style={{ marginBottom: 4 }}>
+                // CODEX ENTRY #{String(pokemon.id).padStart(4, '0')}
+              </div>
+              <h2 className="hud-title" style={{ margin: 0, fontSize: 24, textTransform: 'capitalize' }}>
+                {pokemon.name.replace(/-/g, ' ')}
+              </h2>
+              <div style={{ display: 'flex', gap: 5, marginTop: 7, alignItems: 'center' }}>
+                {pokemon.types.map(t => <TypeBadge key={t} type={t} />)}
+                <span className="mono" style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 4 }}>BST {totalBase}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+              <button className="btn btn-sm" onClick={onClose}>CLOSE ×</button>
+              {shinyArt && (
+                <button
+                  className={`btn btn-sm ${shiny ? 'btn-primary' : ''}`}
+                  onClick={() => setShiny(s => !s)}
+                >
+                  ✦ SHINY
+                </button>
+              )}
+            </div>
+          </div>
 
-          {shinyArt && (
-            <button
-              onClick={() => setShiny(s => !s)}
-              title="Toggle shiny"
-              className={`absolute top-4 right-12 text-xs font-bold px-2 py-0.5 rounded-full border transition-colors ${
-                shiny
-                  ? 'bg-yellow-400/20 border-yellow-500 text-yellow-300'
-                  : 'bg-gray-800/60 border-gray-600 text-gray-400 hover:text-yellow-300 hover:border-yellow-600'
-              }`}
-            >
-              ✦ Shiny
-            </button>
-          )}
-
-          <img
-            src={artwork ?? ''}
-            alt={pokemon.name}
-            className={`absolute right-6 bottom-0 w-40 h-40 object-contain drop-shadow-2xl transition-all duration-300 ${shiny ? 'drop-shadow-[0_0_24px_rgba(250,204,21,0.45)]' : ''}`}
-          />
-          <div>
-            <p className="text-gray-400 text-sm font-mono">#{String(pokemon.id).padStart(4, '0')}</p>
-            <h2 className="text-3xl font-bold text-white capitalize">{pokemon.name.replace(/-/g, ' ')}</h2>
-            <div className="flex gap-2 mt-1">{pokemon.types.map(t => <TypeBadge key={t} type={t} />)}</div>
+          {/* Sprite */}
+          <div style={{ position: 'absolute', right: 20, top: 12, width: 110, height: 110 }}>
+            {artwork && (
+              <img
+                src={artwork}
+                alt={pokemon.name}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', filter: shiny ? 'drop-shadow(0 0 12px rgba(250,204,21,.5))' : undefined }}
+              />
+            )}
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Quick info */}
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-gray-800 rounded-xl p-3"><p className="text-xs text-gray-400">Height</p><p className="text-white font-bold">{(pokemon.height / 10).toFixed(1)}m</p></div>
-            <div className="bg-gray-800 rounded-xl p-3"><p className="text-xs text-gray-400">Weight</p><p className="text-white font-bold">{(pokemon.weight / 10).toFixed(1)}kg</p></div>
-            <div className="bg-gray-800 rounded-xl p-3"><p className="text-xs text-gray-400">BST</p><p className="text-white font-bold">{totalBase}</p></div>
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflow: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Quick info row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {[
+              { label: 'HEIGHT', value: `${(pokemon.height / 10).toFixed(1)} m` },
+              { label: 'WEIGHT', value: `${(pokemon.weight / 10).toFixed(1)} kg` },
+              { label: 'BASE XP', value: String(pokemon.baseExperience ?? '—') },
+            ].map(({ label, value }) => (
+              <div key={label} className="panel" style={{ padding: '8px 10px' }}>
+                <div className="hud-label" style={{ fontSize: 9, marginBottom: 3 }}>{label}</div>
+                <div className="mono" style={{ fontSize: 13, color: 'var(--text-0)' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Base stats */}
+          <div className="panel">
+            <div className="panel-head">
+              <span className="dot" />
+              <h3>Base Stats</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {pokemon.stats.map(s => {
+                const label = STAT_LABELS[s.name] ?? s.name;
+                const pct = Math.round((s.base / maxStat) * 100);
+                const color = s.base >= 110 ? 'var(--green)' : s.base <= 60 ? 'var(--amber)' : 'var(--accent)';
+                return (
+                  <div key={s.name} style={{ display: 'grid', gridTemplateColumns: '36px 34px 1fr', gap: 8, alignItems: 'center' }}>
+                    <span className="hud-label" style={{ fontSize: 9 }}>{label}</span>
+                    <span className="mono" style={{ fontSize: 12, color }}>{s.base}</span>
+                    <div className="stat-bar">
+                      <i style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Abilities */}
-          <div>
-            <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Abilities</h3>
-            <div className="space-y-2">
+          <div className="panel">
+            <div className="panel-head">
+              <span className="dot" />
+              <h3>Abilities</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {pokemon.abilities.map(a => (
-                <div key={a.name} className={`px-3 py-2 rounded-xl ${a.isHidden ? 'bg-purple-900/30 border border-purple-700/50' : 'bg-gray-800 border border-gray-700'}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold capitalize ${a.isHidden ? 'text-purple-200' : 'text-white'}`}>
+                <div key={a.name}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span className="hud-title" style={{ fontSize: 12, textTransform: 'capitalize' }}>
                       {a.name.replace(/-/g, ' ')}
                     </span>
-                    {a.isHidden && <span className="text-xs text-purple-400 bg-purple-900/60 px-1.5 py-0.5 rounded font-bold">HA</span>}
+                    {a.isHidden && <span className="tag tag-cyan">HA</span>}
                   </div>
-                  <p className={`text-xs mt-0.5 leading-relaxed ${abilityEffects[a.name] ? 'text-gray-400' : 'text-gray-600 animate-pulse'}`}>
+                  <p style={{ margin: 0, fontSize: 11, color: abilityEffects[a.name] ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.5 }}>
                     {abilityEffects[a.name] ?? 'Loading…'}
                   </p>
                 </div>
@@ -124,78 +174,67 @@ export function PokemonDetail({ pokemon, onClose }: Props) {
             </div>
           </div>
 
-          {/* Base Stats */}
-          <div>
-            <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-3">Base Stats</h3>
-            <div className="space-y-2">{pokemon.stats.map(s => <StatBar key={s.name} name={s.name} value={s.base} />)}</div>
-          </div>
-
           {/* Type matchups */}
-          <div className="space-y-3">
-            {weaknesses.length > 0 && (
-              <div>
-                <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Weak to</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {weaknesses.map(([type, mult]) => (
-                    <span key={type} className="flex items-center gap-0.5">
-                      <TypeBadge type={type} size="sm" />
-                      <span className="text-xs text-red-400 font-bold">×{mult}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {resistances.length > 0 && (
-              <div>
-                <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Resists</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {resistances.map(([type, mult]) => (
-                    <span key={type} className="flex items-center gap-0.5">
-                      <TypeBadge type={type} size="sm" />
-                      <span className="text-xs text-green-400 font-bold">×{mult}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {immunities.length > 0 && (
-              <div>
-                <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Immune to</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {immunities.map(([type]) => (
-                    <span key={type} className="flex items-center gap-0.5">
-                      <TypeBadge type={type} size="sm" />
-                      <span className="text-xs text-gray-400 font-bold">×0</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="panel">
+            <div className="panel-head">
+              <span className="dot" />
+              <h3>Type Matchup</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {weaknesses.length > 0 && (
+                <MatchupRow label="WEAK TO" types={weaknesses} color="var(--accent)" />
+              )}
+              {resistances.length > 0 && (
+                <MatchupRow label="RESISTS" types={resistances} color="var(--cyan)" />
+              )}
+              {immunities.length > 0 && (
+                <MatchupRow label="IMMUNE" types={immunities} color="var(--green)" />
+              )}
+            </div>
           </div>
 
           {/* Add to team */}
           <button
+            className={`btn ${added ? '' : championsIneligible || teamFull ? '' : 'btn-primary'}`}
             onClick={handleAddToTeam}
             disabled={!added && (teamFull || championsIneligible)}
-            className={`w-full py-3 rounded-xl font-bold text-white transition-colors ${
-              added
-                ? 'bg-green-600 cursor-default'
-                : championsIneligible
-                  ? 'bg-gray-700 opacity-60 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed'
-            }`}
+            style={{
+              width: '100%',
+              padding: '9px',
+              fontSize: 12,
+              background: added ? 'var(--green)' : championsIneligible ? 'var(--bg-2)' : undefined,
+              color: added ? '#0a0b0e' : undefined,
+              opacity: !added && (championsIneligible || teamFull) ? 0.5 : 1,
+              cursor: !added && (championsIneligible || teamFull) ? 'not-allowed' : 'pointer',
+            }}
           >
             {added
-              ? '✓ Added to team!'
+              ? '✓ ADDED TO TEAM'
               : championsIneligible
-                ? 'Not in Champions Roster'
+                ? 'NOT IN CHAMPIONS ROSTER'
                 : teamFull
-                  ? 'Team Full (6/6)'
+                  ? 'TEAM FULL (6/6)'
                   : activeTeam
-                    ? `Add to "${activeTeam.name}"`
-                    : 'Add to New Team'}
+                    ? `ADD TO "${activeTeam.name.toUpperCase()}"`
+                    : 'ADD TO NEW TEAM'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchupRow({ label, types, color }: { label: string; types: [string, number][]; color: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <span className="hud-label" style={{ color, width: 68, flexShrink: 0, paddingTop: 2 }}>{label}</span>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        {types.map(([type, mult]) => (
+          <span key={type} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <TypeBadge type={type} size="sm" />
+            <span className="mono" style={{ fontSize: 9, color }}>{mult < 1 ? `×${mult}` : `×${mult}`}</span>
+          </span>
+        ))}
       </div>
     </div>
   );

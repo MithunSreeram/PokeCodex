@@ -6,28 +6,22 @@ export function formatMoveName(name: string): string {
 }
 
 interface Props {
-  value: string;          // stored as PokeAPI slug (e.g. "flamethrower")
+  value: string;
   onChange: (slug: string) => void;
   legalMoves: Move[];
   placeholder: string;
 }
 
 export function MoveInput({ value, onChange, legalMoves, placeholder }: Props) {
-  const [query, setQuery]   = useState(value ? formatMoveName(value) : '');
-  const [open, setOpen]     = useState(false);
-  const containerRef        = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(value ? formatMoveName(value) : '');
+  const [open, setOpen]   = useState(false);
+  const containerRef      = useRef<HTMLDivElement>(null);
 
-  // Keep display text in sync when value changes externally
-  useEffect(() => {
-    setQuery(value ? formatMoveName(value) : '');
-  }, [value]);
+  useEffect(() => { setQuery(value ? formatMoveName(value) : ''); }, [value]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -36,14 +30,10 @@ export function MoveInput({ value, onChange, legalMoves, placeholder }: Props) {
   const normalised = query.toLowerCase().replace(/\s+/g, '-');
   const suggestions = query.length >= 2
     ? legalMoves
-        .filter(m =>
-          m.name.includes(normalised) ||
-          formatMoveName(m.name).toLowerCase().includes(query.toLowerCase()),
-        )
+        .filter(m => m.name.includes(normalised) || formatMoveName(m.name).toLowerCase().includes(query.toLowerCase()))
         .slice(0, 10)
     : [];
 
-  // Red border if something is typed but it doesn't match any legal move
   const isIllegal = value !== '' && !legalMoves.some(m => m.name === value);
 
   function selectMove(slug: string) {
@@ -53,28 +43,31 @@ export function MoveInput({ value, onChange, legalMoves, placeholder }: Props) {
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const text = e.target.value;
-    setQuery(text);
+    setQuery(e.target.value);
     setOpen(true);
-    // Clear stored value if user erases input
-    if (!text) onChange('');
+    if (!e.target.value) onChange('');
   }
 
   function handleBlur() {
-    // If nothing selected but text matches exactly, auto-commit
-    const exact = legalMoves.find(
-      m => formatMoveName(m.name).toLowerCase() === query.toLowerCase(),
-    );
-    if (exact) {
-      onChange(exact.name);
-      setQuery(formatMoveName(exact.name));
-    }
-    // Close after a tick so mousedown on option fires first
+    const exact = legalMoves.find(m => formatMoveName(m.name).toLowerCase() === query.toLowerCase());
+    if (exact) { onChange(exact.name); setQuery(formatMoveName(exact.name)); }
     setTimeout(() => setOpen(false), 120);
   }
 
+  const ipt: React.CSSProperties = {
+    appearance: 'none',
+    width: '100%',
+    border: `1px solid ${isIllegal ? 'var(--accent)' : value ? 'rgba(43,255,142,.4)' : 'var(--line-hard)'}`,
+    background: 'var(--bg-0)',
+    color: 'var(--text-0)',
+    padding: '4px 24px 4px 8px',
+    fontFamily: 'Chakra Petch',
+    fontSize: 10,
+    outline: 'none',
+  };
+
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} style={{ position: 'relative' }}>
       <input
         type="text"
         value={query}
@@ -82,46 +75,33 @@ export function MoveInput({ value, onChange, legalMoves, placeholder }: Props) {
         onChange={handleChange}
         onFocus={() => query.length >= 2 && setOpen(true)}
         onBlur={handleBlur}
-        className={`w-full bg-gray-900 border rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none pr-6 ${
-          isIllegal
-            ? 'border-red-500 focus:border-red-400'
-            : value
-              ? 'border-green-800 focus:border-green-600'
-              : 'border-gray-700 focus:border-red-500'
-        }`}
+        style={ipt}
       />
-
-      {/* Status icon */}
       {isIllegal && (
-        <span
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-red-400 text-xs font-bold"
-          title="Not in this Pokémon's move pool"
-        >✗</span>
+        <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--accent)', fontWeight: 700 }}>✗</span>
       )}
       {value && !isIllegal && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500 text-xs">✓</span>
+        <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--green)' }}>✓</span>
       )}
-
-      {/* Suggestions dropdown */}
       {open && suggestions.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl overflow-hidden">
+        <div style={{ position: 'absolute', zIndex: 50, top: '100%', left: 0, right: 0, marginTop: 1, background: 'var(--bg-2)', border: '1px solid var(--line-hard)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
           {suggestions.map(m => (
             <button
               key={m.name}
               type="button"
               onMouseDown={() => selectMove(m.name)}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 transition-colors"
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', background: 'transparent', border: 0, borderBottom: '1px solid var(--line)', color: 'var(--text-1)', fontSize: 10, fontFamily: 'Chakra Petch', cursor: 'pointer' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-3)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
               {formatMoveName(m.name)}
             </button>
           ))}
         </div>
       )}
-
-      {/* "No results" hint */}
       {open && query.length >= 2 && suggestions.length === 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-red-700/50 rounded-xl px-3 py-2 text-xs text-red-400">
-          Not in {placeholder.replace('Move ', '')} — can't learn this move
+        <div style={{ position: 'absolute', zIndex: 50, top: '100%', left: 0, right: 0, marginTop: 1, background: 'var(--bg-2)', border: '1px solid var(--accent)', padding: '6px 10px', fontSize: 10, color: 'var(--accent)' }}>
+          Not in pool — can&apos;t learn this move
         </div>
       )}
     </div>

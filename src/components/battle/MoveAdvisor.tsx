@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { TeamMember } from '../../store/teamStore';
 import type { InferredOpponent } from '../../utils/opponentInference';
-import { makeSnapshot, calcDamage, weatherMoveMod, terrainMoveMod } from '../../utils/damageCalc';
+import { makeSnapshot, calcDamage, weatherMoveMod } from '../../utils/damageCalc';
 import type { MoveData, Weather, Terrain, AttackerItem } from '../../utils/damageCalc';
 import { fetchMoveData } from '../../api/pokeapi';
 import { TypeBadge } from '../ui/TypeBadge';
+import { Spinner } from '../ui/Spinner';
 import { formatMoveName } from '../teambuilder/MoveInput';
 
 interface Props {
@@ -50,25 +51,23 @@ const ITEM_OPTIONS: { value: AttackerItem; label: string }[] = [
   { value: 'expert-belt',  label: 'Expert Belt ×1.2 SE' },
 ];
 
-const WEATHER_OPTIONS: { id: Weather; label: string; on: string }[] = [
-  { id: 'none',       label: 'None',        on: 'bg-gray-600 text-white border-gray-500' },
-  { id: 'sun',        label: 'Sun',         on: 'bg-yellow-600 text-white border-yellow-500' },
-  { id: 'rain',       label: 'Rain',        on: 'bg-blue-600 text-white border-blue-500' },
-  { id: 'sand',       label: 'Sand',        on: 'bg-amber-700 text-white border-amber-600' },
-  { id: 'snow',       label: 'Snow',        on: 'bg-cyan-600 text-white border-cyan-500' },
-  { id: 'extremesun', label: 'Ext. Sun',    on: 'bg-orange-600 text-white border-orange-500' },
-  { id: 'heavyrain',  label: 'H. Rain',     on: 'bg-indigo-700 text-white border-indigo-600' },
+const WEATHER_OPTIONS: { id: Weather; label: string; color: string }[] = [
+  { id: 'none',       label: 'None',     color: 'var(--text-3)' },
+  { id: 'sun',        label: 'Sun',      color: '#FFCB2D' },
+  { id: 'rain',       label: 'Rain',     color: '#4D9DE0' },
+  { id: 'sand',       label: 'Sand',     color: '#DBA760' },
+  { id: 'snow',       label: 'Snow',     color: '#8FDAE5' },
+  { id: 'extremesun', label: 'Ext.Sun',  color: '#FF6B35' },
+  { id: 'heavyrain',  label: 'H.Rain',   color: '#7060F5' },
 ];
 
-const TERRAIN_OPTIONS: { id: Terrain; label: string; on: string }[] = [
-  { id: 'none',     label: 'None',    on: 'bg-gray-600 text-white border-gray-500' },
-  { id: 'electric', label: 'Elec',   on: 'bg-yellow-500 text-black border-yellow-400' },
-  { id: 'grassy',   label: 'Grass',  on: 'bg-green-600 text-white border-green-500' },
-  { id: 'psychic',  label: 'Psych',  on: 'bg-pink-600 text-white border-pink-500' },
-  { id: 'misty',    label: 'Misty',  on: 'bg-purple-500 text-white border-purple-400' },
+const TERRAIN_OPTIONS: { id: Terrain; label: string; color: string }[] = [
+  { id: 'none',     label: 'None',   color: 'var(--text-3)' },
+  { id: 'electric', label: 'Elec',  color: '#FFCB2D' },
+  { id: 'grassy',   label: 'Grass', color: '#5FCC4F' },
+  { id: 'psychic',  label: 'Psych', color: '#FF5C9C' },
+  { id: 'misty',    label: 'Misty', color: '#B557D6' },
 ];
-
-const OFF = 'bg-gray-900 text-gray-400 border-gray-700 hover:border-gray-500';
 
 function pokeSprite(poke: { sprites: { front_default: string | null; other?: { 'official-artwork'?: { front_default: string | null } } } }): string {
   return poke.sprites.other?.['official-artwork']?.front_default ?? poke.sprites.front_default ?? '';
@@ -77,25 +76,32 @@ function pokeSprite(poke: { sprites: { front_default: string | null; other?: { '
 function StageRow({ label, stage, onDec, onInc, onReset }: {
   label: string; stage: number; onDec: () => void; onInc: () => void; onReset: () => void;
 }) {
-  const col = stage > 0 ? 'text-green-400' : stage < 0 ? 'text-red-400' : 'text-gray-500';
+  const col = stage > 0 ? 'var(--green)' : stage < 0 ? 'var(--accent)' : 'var(--text-3)';
+  const btn: React.CSSProperties = { appearance: 'none', border: '1px solid var(--line-hard)', background: 'var(--bg-2)', color: 'var(--text-1)', width: 16, height: 16, fontSize: 11, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 };
   return (
-    <div className="flex items-center gap-0.5">
-      <span className="text-[11px] text-gray-500 w-6 shrink-0">{label}</span>
-      <button onClick={onDec} disabled={stage <= -6}
-        className="w-4 h-4 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-20 text-gray-300 text-xs leading-none flex items-center justify-center">−</button>
-      <button onClick={onReset} className={`w-5 text-center text-[11px] font-mono font-bold ${col} ${stage !== 0 ? 'cursor-pointer hover:text-white' : 'cursor-default'}`}>
-        {stage > 0 ? `+${stage}` : stage}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <span className="hud-label" style={{ width: 26, fontSize: 9, flexShrink: 0 }}>{label}</span>
+      <button style={{ ...btn, opacity: stage <= -6 ? 0.2 : 1 }} onClick={onDec} disabled={stage <= -6}>−</button>
+      <button onClick={onReset} style={{ width: 24, textAlign: 'center', background: 'transparent', border: 0, padding: 0, cursor: stage !== 0 ? 'pointer' : 'default' }}>
+        <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: col }}>
+          {stage > 0 ? `+${stage}` : stage}
+        </span>
       </button>
-      <button onClick={onInc} disabled={stage >= 6}
-        className="w-4 h-4 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-20 text-gray-300 text-xs leading-none flex items-center justify-center">+</button>
+      <button style={{ ...btn, opacity: stage >= 6 ? 0.2 : 1 }} onClick={onInc} disabled={stage >= 6}>+</button>
     </div>
   );
 }
 
-function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+function FieldPill({ on, color, onClick, children }: { on: boolean; color?: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick}
-      className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${on ? 'bg-slate-600 text-white border-slate-500' : OFF}`}>
+    <button onClick={onClick} style={{
+      appearance: 'none', cursor: 'pointer',
+      padding: '2px 8px', fontFamily: 'Chakra Petch', fontWeight: 600, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
+      border: `1px solid ${on ? (color ?? 'var(--accent)') : 'var(--line-hard)'}`,
+      background: on ? (color ? color + '22' : 'var(--accent-soft)') : 'var(--bg-2)',
+      color: on ? (color ?? 'var(--accent)') : 'var(--text-3)',
+      transition: 'all .1s',
+    }}>
       {children}
     </button>
   );
@@ -167,7 +173,7 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
     setTheirStages(prev => { const m = new Map(prev); const c = m.get(i) ?? defaultStages(); m.set(i, { ...c, [stat]: 0 }); return m; });
   }
 
-  function doSwitchOur(slotIdx: number, outId: string, inId: string) {
+  function doSwitchOur(_slotIdx: number, outId: string, inId: string) {
     setOurStages(prev => { const m = new Map(prev); m.delete(outId); return m; });
     if (activeId === outId) setActiveId(inId);
     setPendingOurIn(null);
@@ -217,235 +223,248 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
       out.set(attacker.id, list);
     }
     return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchedMoves, weather, terrain, isCrit, isSpread, reflect, lightScreen, auroraVeil,
       ourLeads, theirLeads, ourStages, theirStages, burnedLeads, helpingHand, ourItems, isDoubles]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <svg className="w-7 h-7 animate-spin text-red-500" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        <p className="text-gray-400 text-sm">Fetching move data…</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 16 }}>
+        <Spinner size={7} />
+        <span className="hud-label">FETCHING MOVE DATA…</span>
       </div>
     );
   }
 
   const attacker = ourLeads.find(a => a.id === activeId);
   const moves    = suggestions.get(activeId) ?? [];
+  const moveCols = `minmax(120px,1fr) 50px 42px 28px ${theirLeads.map(() => 'minmax(100px,1fr)').join(' ')}`;
 
-  // Grid template for move table (name + type + cat + bp + N defenders)
-  const moveCols = `minmax(120px,1fr) 60px 46px 32px ${theirLeads.map(() => 'minmax(100px,1fr)').join(' ')}`;
+  const ipt: React.CSSProperties = { appearance: 'none', border: '1px solid var(--line-hard)', background: 'var(--bg-0)', color: 'var(--text-0)', padding: '4px 8px', fontFamily: 'Chakra Petch', fontSize: 10, width: '100%', outline: 'none' };
 
   return (
-    <div className="space-y-3">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      {/* ── Top bar ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-white font-bold text-lg">Move Advisor</h2>
-        <div className="flex gap-2">
-          <button onClick={onBack}  className="px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 text-xs transition-colors">← Leads</button>
-          <button onClick={onReset} className="px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 text-xs transition-colors">New Battle</button>
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 className="hud-title" style={{ margin: 0, fontSize: 18 }}>
+          <span style={{ color: 'var(--accent)' }}>MOVE</span> ADVISOR
+        </h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onBack}  className="btn btn-sm">← LEADS</button>
+          <button onClick={onReset} className="btn btn-sm">NEW BATTLE</button>
         </div>
       </div>
 
-      {/* ── Field Conditions ─────────────────────────────────────────── */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-3 space-y-2">
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-
+      {/* ── Field Conditions ────────────────────────────────────────────── */}
+      <div className="panel">
+        <div className="panel-head"><span className="dot" /><h3>Field Conditions</h3></div>
+        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Weather */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide w-14 shrink-0">Weather</span>
-            {WEATHER_OPTIONS.map(w => (
-              <button key={w.id} onClick={() => setWeather(w.id)}
-                className={`px-2 py-0.5 rounded text-xs font-semibold border transition-all ${weather === w.id ? w.on : OFF}`}>
-                {w.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="hud-label" style={{ width: 56, flexShrink: 0 }}>Weather</span>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {WEATHER_OPTIONS.map(w => (
+                <FieldPill key={w.id} on={weather === w.id} color={w.id !== 'none' ? w.color : undefined} onClick={() => setWeather(w.id)}>
+                  {w.label}
+                </FieldPill>
+              ))}
+            </div>
           </div>
 
           {/* Terrain */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide w-14 shrink-0">Terrain</span>
-            {TERRAIN_OPTIONS.map(t => (
-              <button key={t.id} onClick={() => setTerrain(t.id)}
-                className={`px-2 py-0.5 rounded text-xs font-semibold border transition-all ${terrain === t.id ? t.on : OFF}`}>
-                {t.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="hud-label" style={{ width: 56, flexShrink: 0 }}>Terrain</span>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {TERRAIN_OPTIONS.map(t => (
+                <FieldPill key={t.id} on={terrain === t.id} color={t.id !== 'none' ? t.color : undefined} onClick={() => setTerrain(t.id)}>
+                  {t.label}
+                </FieldPill>
+              ))}
+            </div>
           </div>
 
-          {/* Screens + modifiers */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide w-14 shrink-0">Mods</span>
-            <Pill on={reflect}     onClick={() => setReflect(v => !v)}>Reflect</Pill>
-            <Pill on={lightScreen} onClick={() => setLightScreen(v => !v)}>Light Screen</Pill>
-            <Pill on={auroraVeil}  onClick={() => setAuroraVeil(v => !v)}>Aurora Veil</Pill>
-            <Pill on={isCrit}      onClick={() => setIsCrit(v => !v)}>Crit ×1.5</Pill>
-            {isDoubles && <Pill on={isSpread} onClick={() => setIsSpread(v => !v)}>Spread ×0.75</Pill>}
+          {/* Mods */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="hud-label" style={{ width: 56, flexShrink: 0 }}>Mods</span>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <FieldPill on={reflect}     onClick={() => setReflect(v => !v)}>Reflect</FieldPill>
+              <FieldPill on={lightScreen} onClick={() => setLightScreen(v => !v)}>Light Scr</FieldPill>
+              <FieldPill on={auroraVeil}  onClick={() => setAuroraVeil(v => !v)}>Aurora Veil</FieldPill>
+              <FieldPill on={isCrit}      color="var(--amber)" onClick={() => setIsCrit(v => !v)}>Crit ×1.5</FieldPill>
+              {isDoubles && <FieldPill on={isSpread} color="var(--cyan)" onClick={() => setIsSpread(v => !v)}>Spread ×0.75</FieldPill>}
+            </div>
           </div>
+
+          {/* Active notes */}
+          {(weather !== 'none' || terrain !== 'none' || reflect || lightScreen || auroraVeil || isCrit) && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 6, borderTop: '1px solid var(--line)' }}>
+              {weather === 'sun'        && <><span className="mono" style={{ fontSize: 9, color: '#FFCB2D' }}>Fire ×1.5</span><span className="mono" style={{ fontSize: 9, color: '#4D9DE0' }}>Water ×0.5</span></>}
+              {weather === 'extremesun' && <><span className="mono" style={{ fontSize: 9, color: '#FF6B35' }}>Fire ×1.5</span><span className="mono" style={{ fontSize: 9, color: 'var(--accent)' }}>Water nullified</span></>}
+              {weather === 'rain'       && <><span className="mono" style={{ fontSize: 9, color: '#4D9DE0' }}>Water ×1.5</span><span className="mono" style={{ fontSize: 9, color: '#FF6B35' }}>Fire ×0.5</span></>}
+              {weather === 'heavyrain'  && <><span className="mono" style={{ fontSize: 9, color: '#4D9DE0' }}>Water ×1.5</span><span className="mono" style={{ fontSize: 9, color: 'var(--accent)' }}>Fire nullified</span></>}
+              {weather === 'sand'       && <span className="mono" style={{ fontSize: 9, color: '#DBA760' }}>Rock SpD ×1.5</span>}
+              {weather === 'snow'       && <span className="mono" style={{ fontSize: 9, color: '#8FDAE5' }}>Ice Def ×1.5</span>}
+              {terrain === 'electric'   && <span className="mono" style={{ fontSize: 9, color: '#FFCB2D' }}>Electric ×1.3</span>}
+              {terrain === 'grassy'     && <span className="mono" style={{ fontSize: 9, color: '#5FCC4F' }}>Grass ×1.3 · EQ ×0.5</span>}
+              {terrain === 'psychic'    && <span className="mono" style={{ fontSize: 9, color: '#FF5C9C' }}>Psychic ×1.3</span>}
+              {terrain === 'misty'      && <span className="mono" style={{ fontSize: 9, color: '#B557D6' }}>Dragon ×0.5</span>}
+              {(reflect || auroraVeil)  && <span className="mono" style={{ fontSize: 9, color: 'var(--cyan)' }}>Reflect active</span>}
+              {(lightScreen || auroraVeil) && <span className="mono" style={{ fontSize: 9, color: 'var(--cyan)' }}>Light Screen active</span>}
+              {isCrit                   && <span className="mono" style={{ fontSize: 9, color: 'var(--amber)' }}>Crit: ignores def boosts &amp; screens</span>}
+            </div>
+          )}
         </div>
-
-        {/* Active condition notes */}
-        {(weather !== 'none' || terrain !== 'none' || reflect || lightScreen || auroraVeil || isCrit) && (
-          <div className="flex gap-3 flex-wrap pt-1 border-t border-gray-700/60">
-            {weather === 'sun'        && <><span className="text-xs text-yellow-400">Fire ×1.5</span><span className="text-xs text-blue-400/70">Water ×0.5</span></>}
-            {weather === 'extremesun' && <><span className="text-xs text-orange-400">Fire ×1.5</span><span className="text-xs text-red-400">Water nullified</span></>}
-            {weather === 'rain'       && <><span className="text-xs text-blue-400">Water ×1.5</span><span className="text-xs text-orange-400/70">Fire ×0.5</span></>}
-            {weather === 'heavyrain'  && <><span className="text-xs text-blue-300">Water ×1.5</span><span className="text-xs text-red-400">Fire nullified</span></>}
-            {weather === 'sand'       && <span className="text-xs text-amber-400">Rock SpD ×1.5</span>}
-            {weather === 'snow'       && <span className="text-xs text-cyan-400">Ice Def ×1.5</span>}
-            {terrain === 'electric'   && <span className="text-xs text-yellow-400">Electric ×1.3</span>}
-            {terrain === 'grassy'     && <span className="text-xs text-green-400">Grass ×1.3 · EQ ×0.5</span>}
-            {terrain === 'psychic'    && <span className="text-xs text-pink-400">Psychic ×1.3</span>}
-            {terrain === 'misty'      && <span className="text-xs text-purple-400">Dragon ×0.5</span>}
-            {(reflect || auroraVeil)  && <span className="text-xs text-slate-400">Reflect active</span>}
-            {(lightScreen || auroraVeil) && <span className="text-xs text-slate-400">Light Screen active</span>}
-            {isCrit                   && <span className="text-xs text-orange-400">Crit: ignores def boosts & screens</span>}
-          </div>
-        )}
       </div>
 
-      {/* ── Battlers ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* ── Battlers ────────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
 
         {/* Our side */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-blue-400 font-semibold uppercase tracking-wide">Your Lead</span>
-            {/* Lead tabs for doubles */}
+        <div className="panel">
+          <div className="panel-head">
+            <span className="dot" style={{ background: 'var(--cyan)' }} />
+            <h3 style={{ color: 'var(--cyan)' }}>YOUR LEAD</h3>
             {ourLeads.length > 1 && (
-              <div className="flex gap-1">
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 {ourLeads.map(lead => (
-                  <button key={lead.id} onClick={() => setActiveId(lead.id)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border transition-all ${
-                      activeId === lead.id ? 'border-blue-500 bg-blue-950/40 text-white' : 'border-gray-600 bg-gray-700/40 text-gray-400 hover:text-white'
-                    }`}>
-                    <img src={pokeSprite(lead.pokemon)} className="w-4 h-4 object-contain" alt="" />
-                    <span className="capitalize">{(lead.nickname || lead.pokemon.name).split('-')[0]}</span>
+                  <button key={lead.id} onClick={() => setActiveId(lead.id)} style={{
+                    appearance: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '2px 6px',
+                    border: `1px solid ${activeId === lead.id ? 'var(--cyan)' : 'var(--line-hard)'}`,
+                    background: activeId === lead.id ? 'rgba(43,217,255,.1)' : 'var(--bg-2)',
+                    fontFamily: 'Chakra Petch', fontSize: 10, color: activeId === lead.id ? 'var(--cyan)' : 'var(--text-2)',
+                    textTransform: 'capitalize',
+                  }}>
+                    <img src={pokeSprite(lead.pokemon)} style={{ width: 16, height: 16, objectFit: 'contain' }} alt="" />
+                    {(lead.nickname || lead.pokemon.name).split('-')[0]}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {attacker && (
-            <>
-              {/* Pokémon identity */}
-              <div className="flex items-center gap-2 mb-3">
-                <img src={pokeSprite(attacker.pokemon)} className="w-14 h-14 object-contain shrink-0" alt="" />
-                <div className="min-w-0">
-                  <div className="text-white font-semibold capitalize text-sm leading-tight truncate">
-                    {attacker.nickname || attacker.pokemon.name.replace(/-/g, ' ')}
+          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {attacker && (
+              <>
+                {/* Identity */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img src={pokeSprite(attacker.pokemon)} style={{ width: 56, height: 56, objectFit: 'contain', flexShrink: 0 }} alt="" />
+                  <div>
+                    <div className="hud-title" style={{ fontSize: 13, textTransform: 'capitalize' }}>
+                      {attacker.nickname || attacker.pokemon.name.replace(/-/g, ' ')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                      {attacker.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                    </div>
+                    <div className="hud-label" style={{ fontSize: 9, marginTop: 3 }}>{attacker.nature} nature</div>
                   </div>
-                  <div className="flex gap-1 mt-0.5 flex-wrap">
-                    {attacker.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
-                  </div>
-                  <div className="text-[11px] text-gray-500 mt-0.5">{attacker.nature} nature</div>
                 </div>
-              </div>
 
-              {/* Stat stages — 2-col */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mb-3">
-                {STAGE_STATS.map(({ key, label }) => (
-                  <StageRow key={key} label={label} stage={getOurS(attacker.id)[key]}
-                    onDec={() => adjustOurS(attacker.id, key, -1)}
-                    onInc={() => adjustOurS(attacker.id, key,  1)}
-                    onReset={() => resetOurS(attacker.id, key)} />
-                ))}
-              </div>
+                {/* Stat stages */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
+                  {STAGE_STATS.map(({ key, label }) => (
+                    <StageRow key={key} label={label} stage={getOurS(attacker.id)[key]}
+                      onDec={() => adjustOurS(attacker.id, key, -1)}
+                      onInc={() => adjustOurS(attacker.id, key,  1)}
+                      onReset={() => resetOurS(attacker.id, key)} />
+                  ))}
+                </div>
 
-              {/* Options */}
-              <div className="space-y-1.5 pt-2 border-t border-gray-700/50">
-                <div className="flex gap-3 flex-wrap">
-                  <label className="flex items-center gap-1 cursor-pointer text-[11px] text-gray-400 hover:text-white transition-colors">
-                    <input type="checkbox" checked={burnedLeads.has(attacker.id)}
-                      onChange={() => setBurnedLeads(prev => { const s = new Set(prev); burnedLeads.has(attacker.id) ? s.delete(attacker.id) : s.add(attacker.id); return s; })}
-                      className="accent-red-500 w-3 h-3" />
-                    Burned
-                  </label>
-                  {isDoubles && (
-                    <label className="flex items-center gap-1 cursor-pointer text-[11px] text-gray-400 hover:text-white transition-colors">
-                      <input type="checkbox" checked={helpingHand.has(attacker.id)}
-                        onChange={() => setHelpingHand(prev => { const s = new Set(prev); helpingHand.has(attacker.id) ? s.delete(attacker.id) : s.add(attacker.id); return s; })}
-                        className="accent-purple-500 w-3 h-3" />
-                      Helping Hand
+                {/* Per-lead options */}
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={burnedLeads.has(attacker.id)}
+                        onChange={() => setBurnedLeads(prev => { const s = new Set(prev); burnedLeads.has(attacker.id) ? s.delete(attacker.id) : s.add(attacker.id); return s; })}
+                        style={{ accentColor: 'var(--accent)', width: 11, height: 11 }} />
+                      <span className="hud-label" style={{ fontSize: 9 }}>Burned</span>
                     </label>
-                  )}
+                    {isDoubles && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={helpingHand.has(attacker.id)}
+                          onChange={() => setHelpingHand(prev => { const s = new Set(prev); helpingHand.has(attacker.id) ? s.delete(attacker.id) : s.add(attacker.id); return s; })}
+                          style={{ accentColor: 'var(--cyan)', width: 11, height: 11 }} />
+                        <span className="hud-label" style={{ fontSize: 9 }}>Helping Hand</span>
+                      </label>
+                    )}
+                  </div>
+                  <select value={ourItems.get(attacker.id) ?? 'none'}
+                    onChange={e => setOurItems(prev => { const m = new Map(prev); m.set(attacker.id, e.target.value as AttackerItem); return m; })}
+                    style={ipt}>
+                    {ITEM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
-                <select value={ourItems.get(attacker.id) ?? 'none'}
-                  onChange={e => setOurItems(prev => { const m = new Map(prev); m.set(attacker.id, e.target.value as AttackerItem); return m; })}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-gray-500">
-                  {ITEM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {/* Our bench */}
-          {ourBench.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-700/40">
-              <span className="text-[11px] text-gray-600 font-medium">Bench · click to switch in</span>
-              <div className="flex gap-1.5 flex-wrap mt-1">
-                {ourBench.map(m => (
-                  <button key={m.id}
-                    onClick={() => {
-                      if (ourLeads.length === 1) doSwitchOur(0, ourLeads[0].id, m.id);
-                      else { setPendingOurIn(prev => prev === m.id ? null : m.id); setPendingTheirIn(null); }
-                    }}
-                    className={`flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition-all ${
-                      pendingOurIn === m.id
-                        ? 'border-blue-500 bg-blue-950/40 text-blue-300'
-                        : 'border-gray-700 bg-gray-700/40 text-gray-400 hover:border-gray-500 hover:text-white'
-                    }`}>
-                    <img src={pokeSprite(m.pokemon)} className="w-5 h-5 object-contain" alt="" />
-                    <span className="capitalize">{(m.nickname || m.pokemon.name).split('-')[0]}</span>
-                    <span className="text-gray-600 text-xs">⇆</span>
-                  </button>
-                ))}
-              </div>
-              {pendingOurIn && ourLeads.length > 1 && (
-                <p className="text-[11px] text-blue-400 mt-1">Now click the lead above to replace</p>
-              )}
-              {/* Pending switch: highlight active leads */}
-              {pendingOurIn && ourLeads.length > 1 && (
-                <div className="flex gap-1.5 mt-1">
-                  {ourLeads.map((lead, si) => (
-                    <button key={lead.id} onClick={() => doSwitchOur(si, lead.id, pendingOurIn)}
-                      className="flex items-center gap-1 px-2 py-1 rounded border border-blue-400 bg-blue-950/30 text-blue-200 text-[11px] hover:bg-blue-900/40">
-                      <img src={pokeSprite(lead.pokemon)} className="w-4 h-4 object-contain" alt="" />
-                      <span className="capitalize">{(lead.nickname || lead.pokemon.name).split('-')[0]}</span>
+            {/* Our bench */}
+            {ourBench.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                <div className="hud-label" style={{ fontSize: 9, marginBottom: 6 }}>BENCH · SWITCH IN</div>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {ourBench.map(m => (
+                    <button key={m.id}
+                      onClick={() => {
+                        if (ourLeads.length === 1) doSwitchOur(0, ourLeads[0].id, m.id);
+                        else { setPendingOurIn(prev => prev === m.id ? null : m.id); setPendingTheirIn(null); }
+                      }}
+                      style={{
+                        appearance: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px',
+                        border: `1px solid ${pendingOurIn === m.id ? 'var(--cyan)' : 'var(--line-hard)'}`,
+                        background: pendingOurIn === m.id ? 'rgba(43,217,255,.1)' : 'var(--bg-2)',
+                        fontFamily: 'Chakra Petch', fontSize: 10, color: pendingOurIn === m.id ? 'var(--cyan)' : 'var(--text-2)',
+                        textTransform: 'capitalize', transition: 'all .1s',
+                      }}>
+                      <img src={pokeSprite(m.pokemon)} style={{ width: 18, height: 18, objectFit: 'contain' }} alt="" />
+                      {(m.nickname || m.pokemon.name).split('-')[0]}
+                      <span style={{ color: 'var(--text-3)', fontSize: 10 }}>⇆</span>
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+                {pendingOurIn && ourLeads.length > 1 && (
+                  <>
+                    <div className="mono" style={{ fontSize: 9, color: 'var(--cyan)', marginTop: 6 }}>Select the lead to replace:</div>
+                    <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+                      {ourLeads.map((lead, si) => (
+                        <button key={lead.id} onClick={() => doSwitchOur(si, lead.id, pendingOurIn)}
+                          style={{ appearance: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', border: '1px solid var(--cyan)', background: 'rgba(43,217,255,.08)', fontFamily: 'Chakra Petch', fontSize: 10, color: 'var(--cyan)', textTransform: 'capitalize' }}>
+                          <img src={pokeSprite(lead.pokemon)} style={{ width: 16, height: 16, objectFit: 'contain' }} alt="" />
+                          {(lead.nickname || lead.pokemon.name).split('-')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Their side */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-3">
-          <span className="text-[11px] text-red-400 font-semibold uppercase tracking-wide">Their Lead{theirLeads.length > 1 ? 's' : ''}</span>
-
-          <div className={`mt-2 grid gap-3 ${theirLeads.length > 1 ? 'grid-cols-2' : ''}`}>
+        <div className="panel">
+          <div className="panel-head">
+            <span className="dot" />
+            <h3 style={{ color: 'var(--accent)' }}>THEIR LEAD{theirLeads.length > 1 ? 'S' : ''}</h3>
+          </div>
+          <div style={{ padding: '10px 12px', display: 'grid', gap: 14, gridTemplateColumns: theirLeads.length > 1 ? '1fr 1fr' : '1fr' }}>
             {theirLeads.map((opp, i) => {
               const s = getTheirS(i);
               return (
                 <div key={i}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <img src={pokeSprite(opp.pokemon)} className="w-12 h-12 object-contain shrink-0" alt="" />
-                    <div className="min-w-0">
-                      <div className="text-white font-semibold capitalize text-sm leading-tight truncate">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <img src={pokeSprite(opp.pokemon)} style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0 }} alt="" />
+                    <div>
+                      <div className="hud-title" style={{ fontSize: 12, textTransform: 'capitalize' }}>
                         {opp.pokemon.name.replace(/-/g, ' ')}
                       </div>
-                      <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                      <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
                         {opp.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-0.5">{opp.nature} · {opp.role}</div>
+                      <div className="hud-label" style={{ fontSize: 9, marginTop: 3 }}>{opp.nature} · {opp.role}</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 8px' }}>
                     {STAGE_STATS.map(({ key, label }) => (
                       <StageRow key={key} label={label} stage={s[key]}
                         onDec={() => adjustTheirS(i, key, -1)}
@@ -460,35 +479,37 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
 
           {/* Their bench */}
           {theirBench.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-700/40">
-              <span className="text-[11px] text-gray-600 font-medium">Bench · click to switch in</span>
-              <div className="flex gap-1.5 flex-wrap mt-1">
+            <div style={{ borderTop: '1px solid var(--line)', margin: '0 12px 12px', paddingTop: 8 }}>
+              <div className="hud-label" style={{ fontSize: 9, marginBottom: 6 }}>BENCH · SWITCH IN</div>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {theirBench.map(opp => (
                   <button key={opp.pokemon.name}
                     onClick={() => {
                       if (theirLeads.length === 1) doSwitchTheir(0, theirLeads[0].pokemon.name, opp.pokemon.name);
                       else { setPendingTheirIn(prev => prev === opp.pokemon.name ? null : opp.pokemon.name); setPendingOurIn(null); }
                     }}
-                    className={`flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition-all ${
-                      pendingTheirIn === opp.pokemon.name
-                        ? 'border-red-500 bg-red-950/40 text-red-300'
-                        : 'border-gray-700 bg-gray-700/40 text-gray-400 hover:border-gray-500 hover:text-white'
-                    }`}>
-                    <img src={pokeSprite(opp.pokemon)} className="w-5 h-5 object-contain" alt="" />
-                    <span className="capitalize">{opp.pokemon.name.split('-')[0]}</span>
-                    <span className="text-gray-600 text-xs">⇆</span>
+                    style={{
+                      appearance: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px',
+                      border: `1px solid ${pendingTheirIn === opp.pokemon.name ? 'var(--accent)' : 'var(--line-hard)'}`,
+                      background: pendingTheirIn === opp.pokemon.name ? 'var(--accent-soft)' : 'var(--bg-2)',
+                      fontFamily: 'Chakra Petch', fontSize: 10, color: pendingTheirIn === opp.pokemon.name ? 'var(--accent)' : 'var(--text-2)',
+                      textTransform: 'capitalize', transition: 'all .1s',
+                    }}>
+                    <img src={pokeSprite(opp.pokemon)} style={{ width: 18, height: 18, objectFit: 'contain' }} alt="" />
+                    {opp.pokemon.name.split('-')[0]}
+                    <span style={{ color: 'var(--text-3)', fontSize: 10 }}>⇆</span>
                   </button>
                 ))}
               </div>
               {pendingTheirIn && theirLeads.length > 1 && (
                 <>
-                  <p className="text-[11px] text-red-400 mt-1">Now click the lead to replace</p>
-                  <div className="flex gap-1.5 mt-1">
+                  <div className="mono" style={{ fontSize: 9, color: 'var(--accent)', marginTop: 6 }}>Select the lead to replace:</div>
+                  <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
                     {theirLeads.map((opp, si) => (
                       <button key={opp.pokemon.name} onClick={() => doSwitchTheir(si, opp.pokemon.name, pendingTheirIn)}
-                        className="flex items-center gap-1 px-2 py-1 rounded border border-red-400 bg-red-950/30 text-red-200 text-[11px] hover:bg-red-900/40">
-                        <img src={pokeSprite(opp.pokemon)} className="w-4 h-4 object-contain" alt="" />
-                        <span className="capitalize">{opp.pokemon.name.split('-')[0]}</span>
+                        style={{ appearance: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', border: '1px solid var(--accent)', background: 'var(--accent-soft)', fontFamily: 'Chakra Petch', fontSize: 10, color: 'var(--accent)', textTransform: 'capitalize' }}>
+                        <img src={pokeSprite(opp.pokemon)} style={{ width: 16, height: 16, objectFit: 'contain' }} alt="" />
+                        {opp.pokemon.name.split('-')[0]}
                       </button>
                     ))}
                   </div>
@@ -499,23 +520,22 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
         </div>
       </div>
 
-      {/* ── Move table ───────────────────────────────────────────────── */}
+      {/* ── Move table ───────────────────────────────────────────────────── */}
       {moves.length === 0 ? (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center">
-          <p className="text-gray-400 text-sm">No moves configured for this Pokémon.</p>
-          <p className="text-gray-600 text-xs mt-1">Add moves in Team Builder to get suggestions.</p>
+        <div className="panel" style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <div className="hud-label" style={{ marginBottom: 6 }}>NO MOVES CONFIGURED</div>
+          <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Add moves in Team Builder to get damage suggestions.</p>
         </div>
       ) : (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-          {/* Table header */}
-          <div className="px-3 py-2 border-b border-gray-700 grid gap-2 items-center bg-gray-900/40"
-            style={{ gridTemplateColumns: moveCols }}>
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Move</span>
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Type</span>
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Cat</span>
-            <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">BP</span>
+        <div className="panel" style={{ overflow: 'hidden' }}>
+          {/* Header row */}
+          <div style={{ display: 'grid', gridTemplateColumns: moveCols, gap: 6, alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid var(--line)', background: 'var(--bg-2)' }}>
+            <span className="hud-label" style={{ fontSize: 9 }}>Move</span>
+            <span className="hud-label" style={{ fontSize: 9 }}>Type</span>
+            <span className="hud-label" style={{ fontSize: 9 }}>Cat</span>
+            <span className="hud-label" style={{ fontSize: 9 }}>BP</span>
             {theirLeads.map((opp, i) => (
-              <span key={i} className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide text-right capitalize truncate">
+              <span key={i} className="hud-label" style={{ fontSize: 9, textAlign: 'right', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {opp.pokemon.name.replace(/-/g, ' ')}
               </span>
             ))}
@@ -525,22 +545,22 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
           {moves.map((sug, idx) => {
             const rollsOpen = expandedRolls.has(sug.slug);
             const isBest = idx === 0 && !sug.weatherNullified && sug.bestEffectiveness > 0;
+            const dimmed = sug.weatherNullified || sug.bestEffectiveness === 0;
             return (
-              <div key={sug.slug}
-                className={`border-b border-gray-700/40 last:border-0 transition-colors ${
-                  isBest ? 'bg-yellow-950/20' : sug.weatherNullified || sug.bestEffectiveness === 0 ? 'opacity-40' : ''
-                }`}>
-                <div className="px-3 py-2.5 grid gap-2 items-center"
-                  style={{ gridTemplateColumns: moveCols }}>
-
+              <div key={sug.slug} style={{
+                borderBottom: '1px solid var(--line)',
+                opacity: dimmed ? 0.4 : 1,
+                background: isBest ? 'rgba(255,179,0,.04)' : 'transparent',
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: moveCols, gap: 6, alignItems: 'center', padding: '8px 12px' }}>
                   {/* Move name */}
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {isBest && <span className="text-yellow-400 text-xs shrink-0">★</span>}
-                    <span className="text-white text-sm font-medium truncate">{sug.displayName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    {isBest && <span style={{ color: 'var(--amber)', fontSize: 10, flexShrink: 0 }}>★</span>}
+                    <span className="hud-title" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sug.displayName}</span>
                     {sug.move.basePower > 0 && !sug.weatherNullified && (
                       <button
                         onClick={() => setExpandedRolls(prev => { const s = new Set(prev); rollsOpen ? s.delete(sug.slug) : s.add(sug.slug); return s; })}
-                        className="text-[10px] text-gray-600 hover:text-gray-400 shrink-0 transition-colors ml-1">
+                        style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--text-3)', fontSize: 9, padding: 0, flexShrink: 0, marginLeft: 2, lineHeight: 1 }}>
                         {rollsOpen ? '▲' : '▼'}
                       </button>
                     )}
@@ -548,35 +568,32 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
 
                   <TypeBadge type={sug.move.type} size="sm" />
 
-                  <span className={`text-[11px] font-medium ${
-                    sug.move.category === 'physical' ? 'text-orange-400' :
-                    sug.move.category === 'special'  ? 'text-blue-400'   : 'text-gray-500'
-                  }`}>
-                    {sug.move.category === 'physical' ? 'Phys' : sug.move.category === 'special' ? 'Spec' : 'Stat'}
+                  <span className="mono" style={{ fontSize: 9, color: sug.move.category === 'physical' ? '#FF6B35' : sug.move.category === 'special' ? '#4D9DE0' : 'var(--text-3)' }}>
+                    {sug.move.category === 'physical' ? 'PHYS' : sug.move.category === 'special' ? 'SPEC' : 'STAT'}
                   </span>
 
-                  <span className="text-[11px] text-gray-500">{sug.move.basePower > 0 ? sug.move.basePower : '—'}</span>
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--text-2)' }}>
+                    {sug.move.basePower > 0 ? sug.move.basePower : '—'}
+                  </span>
 
                   {/* Per-defender results */}
                   {sug.results.map((res, ri) => {
                     const showDmg = !sug.weatherNullified && res.effectiveness > 0 && sug.move.basePower > 0;
                     return (
-                      <div key={ri} className="text-right">
+                      <div key={ri} style={{ textAlign: 'right' }}>
                         {!showDmg ? (
-                          <span className="text-[11px] text-gray-600">
-                            {sug.weatherNullified ? 'Nullified' : res.effectiveness === 0 ? 'Immune' : '—'}
+                          <span className="mono" style={{ fontSize: 9, color: 'var(--text-3)' }}>
+                            {sug.weatherNullified ? 'NULL' : res.effectiveness === 0 ? 'IMM' : '—'}
                           </span>
                         ) : (
-                          <div className="space-y-0.5">
-                            <div className="text-white font-mono text-xs font-bold">{res.minPct}–{res.maxPct}%</div>
-                            <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${res.maxPct >= 100 ? 'bg-red-500' : res.maxPct >= 50 ? 'bg-orange-400' : 'bg-blue-400'}`}
-                                style={{ width: `${Math.min(res.maxPct, 100)}%` }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
+                            <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-0)' }}>{res.minPct}–{res.maxPct}%</span>
+                            <div style={{ width: '100%', maxWidth: 80, height: 3, background: 'var(--bg-3)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${Math.min(res.maxPct, 100)}%`, background: res.maxPct >= 100 ? 'var(--accent)' : res.maxPct >= 50 ? 'var(--amber)' : 'var(--cyan)' }} />
                             </div>
-                            {res.koPct === 100  && <span className="text-[10px] text-red-400 font-bold">Guaranteed KO</span>}
-                            {res.koPct > 0 && res.koPct < 100 && <span className="text-[10px] text-orange-400 font-semibold">{res.koPct}% KO</span>}
-                            {res.koPct === 0 && res.maxPct >= 50 && <span className="text-[10px] text-gray-600">2HKO?</span>}
-                            {res.stab && <span className="text-[10px] text-yellow-600 ml-1">STAB</span>}
+                            {res.koPct === 100 && <span className="mono" style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 700 }}>GUARANTEED KO</span>}
+                            {res.koPct > 0 && res.koPct < 100 && <span className="mono" style={{ fontSize: 9, color: 'var(--amber)' }}>{res.koPct}% KO</span>}
+                            {res.stab && <span className="mono" style={{ fontSize: 8, color: 'var(--amber)', opacity: 0.6 }}>STAB</span>}
                           </div>
                         )}
                       </div>
@@ -584,28 +601,28 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
                   })}
                 </div>
 
-                {/* Rolls row (expandable) */}
+                {/* 16-roll expansion */}
                 {rollsOpen && (
-                  <div className="px-3 pb-3 border-t border-gray-700/30 pt-2">
+                  <div style={{ padding: '6px 12px 10px', borderTop: '1px solid var(--line)', background: 'var(--bg-0)' }}>
                     {sug.results.map((res, ri) => {
                       if (!res.rolls.length) return null;
-                      const defHP = res.maxPct > 0 ? Math.round(res.rolls[15] / (res.maxPct / 100)) : 0;
+                      const defHP  = res.maxPct > 0 ? Math.round(res.rolls[15] / (res.maxPct / 100)) : 0;
                       const koCount = res.rolls.filter(r => defHP > 0 && r >= defHP).length;
                       return (
-                        <div key={ri} className="mb-1.5 last:mb-0">
-                          <span className="text-[10px] text-gray-500 mr-2 capitalize">
+                        <div key={ri} style={{ marginBottom: 6 }}>
+                          <span className="hud-label" style={{ fontSize: 8, marginRight: 8, color: 'var(--text-3)' }}>
                             {res.defender.pokemon.name.replace(/-/g, ' ')} ({koCount}/16 KO):
                           </span>
-                          <span className="inline-flex gap-0.5 flex-wrap">
+                          <div style={{ display: 'inline-flex', gap: 2, flexWrap: 'wrap', marginTop: 3 }}>
                             {res.rolls.map((r, i2) => {
                               const ko = defHP > 0 && r >= defHP;
                               return (
-                                <span key={i2} className={`text-[10px] font-mono px-1 py-0.5 rounded ${
-                                  ko ? 'bg-red-900/60 text-red-300 font-bold' : 'bg-gray-700/60 text-gray-400'
-                                }`}>{r}</span>
+                                <span key={i2} className="mono" style={{ fontSize: 9, padding: '1px 4px', background: ko ? 'var(--accent-soft)' : 'var(--bg-2)', border: `1px solid ${ko ? 'var(--accent)' : 'var(--line)'}`, color: ko ? 'var(--accent)' : 'var(--text-2)', fontWeight: ko ? 700 : 400 }}>
+                                  {r}
+                                </span>
                               );
                             })}
-                          </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -617,9 +634,8 @@ export function MoveAdvisor({ ourLeads, theirLeads, ourBench, theirBench, onSwit
         </div>
       )}
 
-      <p className="text-gray-600 text-xs">
-        Damage uses inferred builds for opponents. Actual results vary with items, abilities, and spreads.
-        Flying-types are treated as ungrounded (terrain boosts excluded).
+      <p className="mono" style={{ fontSize: 9, color: 'var(--text-3)', margin: 0 }}>
+        Damage uses inferred builds. Actual results vary with items, abilities, and spreads. Flying-types treated as ungrounded.
       </p>
     </div>
   );

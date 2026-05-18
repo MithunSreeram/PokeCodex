@@ -8,34 +8,75 @@ interface Props {
 }
 
 export function PokemonCard({ pokemon, onClick }: Props) {
-  const primaryColor = TYPE_COLORS[pokemon.types[0]]?.bg ?? '#555';
+  const key0 = pokemon.types[0].toLowerCase();
+  const key1 = pokemon.types[1]?.toLowerCase() ?? key0;
+  const c1 = TYPE_COLORS[key0]?.bg ?? '#545b73';
+  const c2 = TYPE_COLORS[key1]?.bg ?? c1;
 
   return (
     <button
       onClick={onClick}
-      className="group relative flex flex-col items-center gap-2 rounded-2xl p-4 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-gray-500 transition-all duration-200 hover:scale-105 cursor-pointer w-full"
+      style={{
+        appearance: 'none',
+        border: '1px solid var(--line)',
+        background: 'var(--bg-1)',
+        padding: 0,
+        cursor: 'pointer',
+        textAlign: 'left',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        transition: 'border-color .12s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--line-hard)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--line)'; }}
     >
-      <span className="absolute top-2 right-3 text-xs text-gray-500 font-mono">
-        #{String(pokemon.id).padStart(4, '0')}
-      </span>
+      {/* Sprite area */}
+      <div style={{
+        position: 'relative',
+        aspectRatio: '1 / 1',
+        overflow: 'hidden',
+        background: `radial-gradient(120% 120% at 30% 20%, ${c1}28, transparent 60%), radial-gradient(120% 120% at 80% 90%, ${c2}1a, transparent 60%), var(--bg-2)`,
+      }}>
+        {/* Grid overlay */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'linear-gradient(to right, rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.04) 1px, transparent 1px)',
+          backgroundSize: '12px 12px',
+        }} />
 
-      <div
-        className="w-24 h-24 rounded-full flex items-center justify-center"
-        style={{ background: `${primaryColor}22` }}
-      >
-        {pokemon.sprite ? (
-          <img src={pokemon.sprite} alt={pokemon.name} className="w-20 h-20 object-contain drop-shadow-lg" loading="lazy" />
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center text-3xl">?</div>
-        )}
+        {/* ID */}
+        <span className="mono" style={{ position: 'absolute', top: 5, left: 7, fontSize: 9, color: 'var(--text-3)', letterSpacing: '.04em' }}>
+          #{String(pokemon.id).padStart(4, '0')}
+        </span>
+
+        {/* Sprite */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {pokemon.sprite ? (
+            <img
+              src={pokemon.sprite}
+              alt={pokemon.name}
+              loading="lazy"
+              style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+            />
+          ) : (
+            <span style={{ color: 'var(--text-3)', fontSize: 28 }}>?</span>
+          )}
+        </div>
+
+        {/* Bottom type gradient line */}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: `linear-gradient(to right, transparent, ${c1}aa, transparent)` }} />
       </div>
 
-      <span className="text-white font-semibold capitalize text-sm">
-        {pokemon.name.replace(/-/g, ' ')}
-      </span>
-
-      <div className="flex gap-1 flex-wrap justify-center">
-        {pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+      {/* Name + types */}
+      <div style={{ padding: '7px 9px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <span className="hud-title" style={{ fontSize: 12, color: 'var(--text-0)', textTransform: 'capitalize' }}>
+          {pokemon.name.replace(/-/g, ' ')}
+        </span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+        </div>
       </div>
     </button>
   );

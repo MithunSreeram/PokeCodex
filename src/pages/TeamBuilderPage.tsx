@@ -45,9 +45,7 @@ function PokemonSearchBox({ onAdd, format, disabled }: SearchBoxProps) {
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -81,23 +79,23 @@ function PokemonSearchBox({ onAdd, format, disabled }: SearchBoxProps) {
   const showDropdown = open && query.length >= 2;
 
   return (
-    <div className="space-y-1">
-      <form onSubmit={e => { e.preventDefault(); submit(query); }} className="flex gap-2">
-        <div ref={containerRef} className="relative flex-1">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <form onSubmit={e => { e.preventDefault(); submit(query); }} style={{ display: 'flex', gap: 8 }}>
+        <div ref={containerRef} style={{ position: 'relative', flex: 1 }}>
           <input
             value={query}
             onChange={e => { setQuery(e.target.value); setError(''); setOpen(true); }}
             onFocus={() => { loadNames(); if (query.length >= 2) setOpen(true); }}
             placeholder={isChampions ? 'Search Champions roster…' : 'Add Pokémon by name (e.g. flutter-mane)'}
             disabled={disabled || adding}
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors disabled:opacity-50"
+            className="ipt"
+            style={{ opacity: disabled || adding ? 0.5 : 1 }}
           />
-
           {showDropdown && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-600/80 rounded-xl shadow-2xl overflow-hidden">
+            <div style={{ position: 'absolute', zIndex: 50, top: '100%', left: 0, right: 0, marginTop: 2, background: 'var(--bg-2)', border: '1px solid var(--line-hard)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
               {namesLoading ? (
-                <div className="flex items-center gap-2 px-4 py-3 text-gray-500 text-sm">
-                  <Spinner size={3} /> Loading Pokémon list…
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', color: 'var(--text-3)', fontSize: 11 }}>
+                  <Spinner size={3} /> Loading list…
                 </div>
               ) : suggestions.length > 0 ? (
                 suggestions.map(name => (
@@ -105,30 +103,31 @@ function PokemonSearchBox({ onAdd, format, disabled }: SearchBoxProps) {
                     key={name}
                     type="button"
                     onMouseDown={() => handleSelect(name)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 hover:text-white transition-colors capitalize"
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'transparent', border: 0, borderBottom: '1px solid var(--line)', color: 'var(--text-1)', fontSize: 12, fontFamily: 'Chakra Petch', cursor: 'pointer', textTransform: 'capitalize' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-3)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                   >
                     {name.replace(/-/g, ' ')}
                   </button>
                 ))
               ) : (
-                <div className="px-4 py-3 text-xs text-gray-500">
-                  No {isChampions ? 'Champions-eligible' : ''} Pokémon matching "{query}"
+                <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--text-3)' }}>
+                  No {isChampions ? 'Champions-eligible ' : ''}Pokémon matching &quot;{query}&quot;
                 </div>
               )}
             </div>
           )}
         </div>
-
         <button
           type="submit"
           disabled={adding || disabled}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="btn btn-primary"
+          style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, opacity: adding || disabled ? 0.5 : 1 }}
         >
-          {adding ? <Spinner size={4} /> : 'Add'}
+          {adding ? <Spinner size={3} /> : '+ ADD'}
         </button>
       </form>
-
-      {error && <p className="text-red-400 text-sm pl-1">{error}</p>}
+      {error && <p style={{ margin: 0, fontSize: 11, color: 'var(--accent)' }}>{error}</p>}
     </div>
   );
 }
@@ -162,136 +161,155 @@ export function TeamBuilderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 py-8 flex gap-6 flex-col lg:flex-row">
+    <div style={{ minHeight: '100vh' }}>
+      <div className="wrap-wide" style={{ paddingTop: 20, paddingBottom: 48 }}>
 
-        {/* Sidebar */}
-        <aside className="lg:w-64 space-y-4 shrink-0">
-          <div className="bg-gray-800/80 rounded-2xl p-4 border border-gray-700 shadow-lg">
-            <h2 className="text-sm font-bold text-gray-300 mb-3">New Team</h2>
-            <form onSubmit={handleCreateTeam} className="space-y-2">
-              <div className="flex gap-2">
-                <input
-                  value={newTeamName}
-                  onChange={e => setNewTeamName(e.target.value)}
-                  placeholder="Team name"
-                  className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500 transition-colors"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold transition-colors"
-                >
-                  +
-                </button>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setNewTeamFormat('VGC 2025 Series 2')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    newTeamFormat === 'VGC 2025 Series 2'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-700 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  VGC 2025
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewTeamFormat('Pokémon Champions')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    newTeamFormat === 'Pokémon Champions'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Champions
-                </button>
-              </div>
-            </form>
-          </div>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <div className="hud-label" style={{ marginBottom: 4 }}>// THE CODEX — MODULE 02</div>
+          <h1 className="hud-title" style={{ margin: 0, fontSize: 28 }}>
+            <span style={{ color: 'var(--accent)' }}>TEAM</span> BUILDER
+          </h1>
+        </div>
 
-          {teams.length > 0 && (
-            <div className="bg-gray-800/80 rounded-2xl p-4 border border-gray-700 shadow-lg">
-              <h2 className="text-sm font-bold text-gray-300 mb-3">My Teams</h2>
-              <div className="space-y-1.5">
-                {teams.map(t => (
-                  <div
-                    key={t.id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 ${
-                      t.id === activeTeamId
-                        ? 'bg-red-600/20 border border-red-600/50 text-white'
-                        : 'hover:bg-gray-700/60 text-gray-400 border border-transparent'
-                    }`}
-                    onClick={() => setActiveTeam(t.id)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{t.name}</p>
-                      <p className="text-xs text-gray-600 truncate">
-                        {t.format === 'Pokémon Champions' ? 'Champions' : 'VGC 2025'}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-500 shrink-0">{t.members.length}/6</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 280px', gap: 14, alignItems: 'start' }}>
+
+          {/* ── Sidebar: team management ─────────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* New team form */}
+            <div className="panel">
+              <div className="panel-head">
+                <span className="dot" />
+                <h3>New Team</h3>
+              </div>
+              <div style={{ padding: 12 }}>
+                <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    placeholder="Team name"
+                    className="ipt"
+                    style={{ fontSize: 11 }}
+                  />
+                  <div className="seg">
                     <button
-                      onClick={e => { e.stopPropagation(); handleDeleteTeam(t.id, t.name); }}
-                      className="text-gray-600 hover:text-red-400 text-sm transition-colors"
-                      title="Delete team"
-                    >
-                      ×
-                    </button>
+                      type="button"
+                      className={newTeamFormat === 'VGC 2025 Series 2' ? 'active' : ''}
+                      onClick={() => setNewTeamFormat('VGC 2025 Series 2')}
+                    >VGC 2025</button>
+                    <button
+                      type="button"
+                      className={newTeamFormat === 'Pokémon Champions' ? 'active' : ''}
+                      onClick={() => setNewTeamFormat('Pokémon Champions')}
+                      style={newTeamFormat === 'Pokémon Champions' ? { background: 'var(--champ)', color: '#fff' } : {}}
+                    >CHAMP</button>
                   </div>
-                ))}
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                    CREATE TEAM
+                  </button>
+                </form>
               </div>
             </div>
-          )}
-        </aside>
 
-        {/* Main */}
-        <main className="flex-1 space-y-5 min-w-0">
-          {!activeTeam ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-3">
-              <p className="text-lg">No team selected.</p>
-              <p className="text-sm">Create a team from the sidebar to get started.</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
-                  <p className="text-sm text-gray-400">
-                    {activeTeam.format} · {activeTeam.members.length}/6
-                  </p>
+            {/* Team list */}
+            {teams.length > 0 && (
+              <div className="panel">
+                <div className="panel-head">
+                  <span className="dot" />
+                  <h3>My Teams</h3>
+                </div>
+                <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {teams.map(t => (
+                    <div
+                      key={t.id}
+                      onClick={() => setActiveTeam(t.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '7px 8px',
+                        cursor: 'pointer',
+                        background: t.id === activeTeamId ? 'var(--accent-soft)' : 'transparent',
+                        border: t.id === activeTeamId ? '1px solid var(--accent)' : '1px solid transparent',
+                        transition: 'all .1s',
+                      }}
+                      onMouseEnter={e => { if (t.id !== activeTeamId) (e.currentTarget as HTMLElement).style.background = 'var(--bg-3)'; }}
+                      onMouseLeave={e => { if (t.id !== activeTeamId) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p className="hud-title" style={{ margin: 0, fontSize: 11, color: 'var(--text-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.name}
+                        </p>
+                        <p className="mono" style={{ margin: 0, fontSize: 9, color: 'var(--text-3)' }}>
+                          {t.format === 'Pokémon Champions' ? 'CHAMPIONS' : 'VGC 2025'}
+                        </p>
+                      </div>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>{t.members.length}/6</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteTeam(t.id, t.name); }}
+                        style={{ background: 'transparent', border: 0, color: 'var(--text-3)', cursor: 'pointer', padding: '0 2px', fontSize: 14, lineHeight: 1 }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-3)'; }}
+                      >×</button>
+                    </div>
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
 
-              {activeTeam.members.length < 6 && (
-                <PokemonSearchBox onAdd={handleAddPokemon} format={activeTeam.format} />
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {activeTeam.members.map(m => (
-                  <MemberCard key={m.id} member={m} teamId={activeTeam.id} format={activeTeam.format} />
-                ))}
-                {Array.from({ length: 6 - activeTeam.members.length }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="rounded-2xl border-2 border-dashed border-gray-800 h-40 flex items-center justify-center text-gray-700 text-sm hover:border-gray-700 transition-colors"
-                  >
-                    Empty slot
-                  </div>
-                ))}
+          {/* ── Main: roster ─────────────────────────────────────────── */}
+          <div>
+            {!activeTeam ? (
+              <div className="panel" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div className="hud-label" style={{ marginBottom: 8 }}>NO TEAM SELECTED</div>
+                <p style={{ color: 'var(--text-3)', fontSize: 12, margin: 0 }}>Create a team from the left panel to get started.</p>
               </div>
-            </>
-          )}
-        </main>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <div>
+                    <h2 className="hud-title" style={{ margin: 0, fontSize: 18 }}>{activeTeam.name}</h2>
+                    <p className="hud-label" style={{ margin: '3px 0 0' }}>
+                      {activeTeam.format} · {activeTeam.members.length}/6
+                    </p>
+                  </div>
+                  {activeTeam.members.length < 6 && (
+                    <span className="tag tag-green">OPEN SLOTS</span>
+                  )}
+                </div>
 
-        {/* Analysis */}
-        {activeTeam && (
-          <aside className="lg:w-72 shrink-0">
-            <h2 className="text-sm font-bold text-gray-300 mb-3">Team Analysis</h2>
-            <TeamAnalysisPanel team={activeTeam} />
-          </aside>
-        )}
+                {activeTeam.members.length < 6 && (
+                  <PokemonSearchBox onAdd={handleAddPokemon} format={activeTeam.format} />
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {activeTeam.members.map(m => (
+                    <MemberCard key={m.id} member={m} teamId={activeTeam.id} format={activeTeam.format} />
+                  ))}
+                  {Array.from({ length: 6 - activeTeam.members.length }).map((_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="panel"
+                      style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderColor: 'var(--line)' }}
+                    >
+                      <span className="hud-label" style={{ fontSize: 9, color: 'var(--text-3)' }}>EMPTY SLOT</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Analysis panel ───────────────────────────────────────── */}
+          {activeTeam && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="hud-label">// ANALYSIS</div>
+              <TeamAnalysisPanel team={activeTeam} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { suggestPick } from '../utils/teamSelector';
 import type { ScoredMember } from '../utils/teamSelector';
 import { TypeBadge } from '../components/ui/TypeBadge';
 import { MoveAdvisor } from '../components/battle/MoveAdvisor';
+import { Spinner } from '../components/ui/Spinner';
 
 type Step = 'team-select' | 'opponent-input' | 'brings' | 'leads' | 'advisor';
 type Format = 'singles' | 'doubles';
@@ -20,11 +21,11 @@ function pokeSprite(poke: {
 }
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'team-select',    label: 'Your Team' },
-  { key: 'opponent-input', label: 'Opponent'  },
-  { key: 'brings',         label: 'Picks'     },
-  { key: 'leads',          label: 'Leads'     },
-  { key: 'advisor',        label: 'Moves'     },
+  { key: 'team-select',    label: 'TEAM'     },
+  { key: 'opponent-input', label: 'OPPONENT' },
+  { key: 'brings',         label: 'PICKS'    },
+  { key: 'leads',          label: 'LEADS'    },
+  { key: 'advisor',        label: 'MOVES'    },
 ];
 
 export function BattleAdvisorPage() {
@@ -34,38 +35,31 @@ export function BattleAdvisorPage() {
   const [team,   setTeam]   = useState<Team | null>(null);
   const [format, setFormat] = useState<Format>('doubles');
 
-  // ── Step 2 ────────────────────────────────────────────────────────────────
   const [oppNames,   setOppNames]   = useState<string[]>(Array(6).fill(''));
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [oppErrors,  setOppErrors]  = useState<string[]>(Array(6).fill(''));
   const [opponents,  setOpponents]  = useState<InferredOpponent[]>([]);
 
-  // ── Step 3 ────────────────────────────────────────────────────────────────
   const bringCount = format === 'singles' ? 3 : 4;
   const [recommended,    setRecommended]    = useState<ScoredMember[]>([]);
   const [customBringIds, setCustomBringIds] = useState<Set<string> | null>(null);
 
-  const currentBringIds: Set<string> =
-    customBringIds ?? new Set(recommended.map(s => s.member.id));
+  const currentBringIds: Set<string> = customBringIds ?? new Set(recommended.map(s => s.member.id));
   const brings: TeamMember[] = team?.members.filter(m => currentBringIds.has(m.id)) ?? [];
 
-  // ── Step 4 ────────────────────────────────────────────────────────────────
   const leadCount = format === 'singles' ? 1 : 2;
-  const [ourLeadIds,    setOurLeadIds]    = useState<Set<string>>(new Set());
-  const [theirLeadIdxs, setTheirLeadIdxs] = useState<Set<number>>(new Set());
+  const [ourLeadIds,     setOurLeadIds]    = useState<Set<string>>(new Set());
+  const [theirLeadIdxs,  setTheirLeadIdxs] = useState<Set<number>>(new Set());
 
   const ourLeads   = brings.filter((m)       => ourLeadIds.has(m.id));
   const theirLeads = opponents.filter((_, i) => theirLeadIdxs.has(i));
   const ourBench   = brings.filter((m)       => !ourLeadIds.has(m.id));
   const theirBench = opponents.filter((_, i) => !theirLeadIdxs.has(i));
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
   async function analyzeOpponents() {
     setLoadingOpp(true);
     const errors = Array<string>(6).fill('');
     const valid: InferredOpponent[] = [];
-
     for (let i = 0; i < 6; i++) {
       const raw = oppNames[i].trim();
       if (!raw) continue;
@@ -77,27 +71,21 @@ export function BattleAdvisorPage() {
         errors[i] = `"${raw}" not found`;
       }
     }
-
     setOppErrors(errors);
     setOpponents(valid);
-
     if (valid.length > 0 && team && team.members.length > 0) {
       const picks = suggestPick(team.members, valid, bringCount as 3 | 4);
       setRecommended(picks);
       setCustomBringIds(null);
     }
-
     setLoadingOpp(false);
     if (valid.length > 0) setStep('brings');
   }
 
   function toggleBring(id: string) {
     const base = new Set(currentBringIds);
-    if (base.has(id)) {
-      if (base.size > 1) base.delete(id);
-    } else if (base.size < bringCount) {
-      base.add(id);
-    }
+    if (base.has(id)) { if (base.size > 1) base.delete(id); }
+    else if (base.size < bringCount) base.add(id);
     setCustomBringIds(base);
   }
 
@@ -120,450 +108,375 @@ export function BattleAdvisorPage() {
   }
 
   function switchOurLead(outId: string, inId: string) {
-    setOurLeadIds(prev => {
-      const next = new Set(prev);
-      next.delete(outId);
-      next.add(inId);
-      return next;
-    });
+    setOurLeadIds(prev => { const next = new Set(prev); next.delete(outId); next.add(inId); return next; });
   }
 
   function switchTheirLead(outName: string, inName: string) {
     const outIdx = opponents.findIndex(o => o.pokemon.name === outName);
     const inIdx  = opponents.findIndex(o => o.pokemon.name === inName);
     if (outIdx < 0 || inIdx < 0) return;
-    setTheirLeadIdxs(prev => {
-      const next = new Set(prev);
-      next.delete(outIdx);
-      next.add(inIdx);
-      return next;
-    });
+    setTheirLeadIdxs(prev => { const next = new Set(prev); next.delete(outIdx); next.add(inIdx); return next; });
   }
 
   function fullReset() {
-    setStep('team-select');
-    setTeam(null);
-    setOppNames(Array(6).fill(''));
-    setOppErrors(Array(6).fill(''));
-    setOpponents([]);
-    setRecommended([]);
-    setCustomBringIds(null);
-    setOurLeadIds(new Set());
-    setTheirLeadIdxs(new Set());
+    setStep('team-select'); setTeam(null);
+    setOppNames(Array(6).fill('')); setOppErrors(Array(6).fill(''));
+    setOpponents([]); setRecommended([]); setCustomBringIds(null);
+    setOurLeadIds(new Set()); setTheirLeadIdxs(new Set());
   }
 
-  // ── Step indicator ────────────────────────────────────────────────────────
   const stepIdx = STEPS.findIndex(s => s.key === step);
-
-  // ── Min members for format ────────────────────────────────────────────────
   const minMembers = bringCount;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+    <div style={{ minHeight: '100vh' }}>
+      <div className="wrap-wide" style={{ paddingTop: 20, paddingBottom: 48, maxWidth: 900 }}>
 
-      {/* Page header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Battle Advisor</h1>
-        <p className="text-gray-400 mt-1 text-sm">
-          Upload your team, scout the opponent, and get move-by-move damage suggestions.
-        </p>
-      </div>
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <div className="hud-label" style={{ marginBottom: 4 }}>// THE CODEX — MODULE 03</div>
+          <h1 className="hud-title" style={{ margin: 0, fontSize: 28 }}>
+            <span style={{ color: 'var(--accent)' }}>BATTLE</span> ADVISOR
+          </h1>
+        </div>
 
-      {/* Progress indicator */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => (
-          <div key={s.key} className="flex items-center gap-1">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              i < stepIdx  ? 'bg-red-600 text-white' :
-              i === stepIdx ? 'bg-red-500 text-white ring-2 ring-red-400/40' :
-                              'bg-gray-700 text-gray-500'
-            }`}>{i + 1}</div>
-            <span className={`text-xs hidden sm:block mr-1 ${
-              i === stepIdx ? 'text-white' : i < stepIdx ? 'text-red-400' : 'text-gray-600'
-            }`}>{s.label}</span>
-            {i < STEPS.length - 1 && (
-              <div className={`w-6 h-px mx-1 ${i < stepIdx ? 'bg-red-600' : 'bg-gray-700'}`} />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* ── Step 1: Team Select ────────────────────────────────────────────── */}
-      {step === 'team-select' && (
-        <div className="space-y-6">
-
-          {/* Team list */}
-          <div>
-            <h2 className="text-white font-bold text-lg mb-3">Select Your Team</h2>
-            {teams.length === 0 ? (
-              <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 text-center">
-                <p className="text-gray-400 mb-3">No teams saved yet.</p>
-                <Link to="/team-builder" className="text-red-400 hover:text-red-300 text-sm underline">
-                  Build a team first →
-                </Link>
+        {/* Progress rail */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24 }}>
+          {STEPS.map((s, i) => (
+            <div key={s.key} style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '4px 12px',
+                background: i === stepIdx ? 'var(--accent)' : i < stepIdx ? 'var(--accent-soft)' : 'var(--bg-2)',
+                border: `1px solid ${i === stepIdx ? 'var(--accent)' : i < stepIdx ? 'rgba(255,45,58,.3)' : 'var(--line-hard)'}`,
+              }}>
+                <span className="mono" style={{ fontSize: 9, color: i === stepIdx ? '#0a0b0e' : i < stepIdx ? 'var(--accent)' : 'var(--text-3)' }}>{i + 1}</span>
+                <span className="hud-label" style={{ fontSize: 9, color: i === stepIdx ? '#0a0b0e' : i < stepIdx ? 'var(--text-1)' : 'var(--text-3)' }}>{s.label}</span>
               </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {teams.map(t => (
+              {i < STEPS.length - 1 && (
+                <div style={{ width: 16, height: 1, background: i < stepIdx ? 'var(--accent)' : 'var(--line-hard)' }} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Step 1: Team Select ──────────────────────────────────────────── */}
+        {step === 'team-select' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="panel">
+              <div className="panel-head"><span className="dot" /><h3>Select Your Team</h3></div>
+              <div style={{ padding: 14 }}>
+                {teams.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                    <p style={{ color: 'var(--text-2)', marginBottom: 10, fontSize: 13 }}>No teams saved yet.</p>
+                    <Link to="/team-builder" style={{ color: 'var(--accent)', fontSize: 12, fontFamily: 'Chakra Petch', fontWeight: 600 }}>
+                      BUILD A TEAM FIRST →
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+                    {teams.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTeam(t)}
+                        style={{
+                          appearance: 'none', cursor: 'pointer', textAlign: 'left', padding: '12px 14px',
+                          border: `1px solid ${team?.id === t.id ? 'var(--accent)' : 'var(--line-hard)'}`,
+                          background: team?.id === t.id ? 'var(--accent-soft)' : 'var(--bg-2)',
+                          transition: 'all .1s',
+                        }}
+                        onMouseEnter={e => { if (team?.id !== t.id) (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-2)'; }}
+                        onMouseLeave={e => { if (team?.id !== t.id) (e.currentTarget as HTMLElement).style.borderColor = 'var(--line-hard)'; }}
+                      >
+                        <div className="hud-title" style={{ fontSize: 13, marginBottom: 3 }}>{t.name}</div>
+                        <div className="hud-label" style={{ fontSize: 9, marginBottom: 8 }}>
+                          {t.format} · {t.members.length}/6
+                        </div>
+                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                          {t.members.map(m => (
+                            <img key={m.id} src={m.pokemon.sprites.front_default ?? ''} alt={m.pokemon.name} style={{ width: 36, height: 36, objectFit: 'contain' }} />
+                          ))}
+                        </div>
+                        {t.members.length < minMembers && (
+                          <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--amber)' }}>
+                            Needs at least {minMembers} Pokémon for {format}.
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head"><span className="dot" /><h3>Battle Format</h3></div>
+              <div style={{ padding: 14, display: 'flex', gap: 10 }}>
+                {(['singles', 'doubles'] as const).map(f => (
                   <button
-                    key={t.id}
-                    onClick={() => setTeam(t)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
-                      team?.id === t.id
-                        ? 'border-red-500 bg-red-950/40 ring-1 ring-red-500/30'
-                        : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                    }`}
+                    key={f}
+                    onClick={() => setFormat(f)}
+                    className={`btn ${format === f ? 'btn-primary' : ''}`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, padding: '10px 18px' }}
                   >
-                    <div className="font-semibold text-white">{t.name}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {t.format} · {t.members.length}/6 Pokémon
-                    </div>
-                    <div className="flex gap-0.5 mt-2 flex-wrap">
-                      {t.members.map(m => (
-                        <img
-                          key={m.id}
-                          src={m.pokemon.sprites.front_default ?? ''}
-                          alt={m.pokemon.name}
-                          className="w-9 h-9 object-contain"
-                        />
-                      ))}
-                    </div>
-                    {t.members.length < minMembers && (
-                      <p className="text-xs text-yellow-500 mt-2">
-                        Needs at least {minMembers} Pokémon for {format}.
-                      </p>
-                    )}
+                    <span style={{ fontSize: 13, letterSpacing: '.05em' }}>{f.toUpperCase()}</span>
+                    <span className="mono" style={{ fontSize: 9, letterSpacing: 0, textTransform: 'none', color: format === f ? 'rgba(0,0,0,.6)' : 'var(--text-3)', fontWeight: 400 }}>
+                      {f === 'singles' ? 'Bring 3 · 1 lead' : 'Bring 4 · 2 leads'}
+                    </span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Format selector */}
-          <div>
-            <h2 className="text-white font-bold text-lg mb-3">Battle Format</h2>
-            <div className="flex gap-3">
-              {(['singles', 'doubles'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFormat(f)}
-                  className={`px-6 py-3 rounded-xl font-semibold text-sm capitalize transition-colors ${
-                    format === f
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-800 border border-gray-700 text-gray-400 hover:border-gray-600'
-                  }`}
-                >
-                  {f}
-                  <div className="text-xs font-normal opacity-70 mt-0.5">
-                    {f === 'singles' ? 'Bring 3 · 1 lead' : 'Bring 4 · 2 leads'}
-                  </div>
-                </button>
-              ))}
             </div>
-          </div>
 
-          <button
-            disabled={!team || team.members.length < minMembers}
-            onClick={() => setStep('opponent-input')}
-            className="px-8 py-3 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors"
-          >
-            Next: Enter Opponent's Team →
-          </button>
-        </div>
-      )}
-
-      {/* ── Step 2: Opponent Input ─────────────────────────────────────────── */}
-      {step === 'opponent-input' && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-white font-bold text-lg">Opponent's Team</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              Enter the names of your opponent's Pokémon — just the name is enough. We'll infer
-              their likely EVs, IVs, nature, and moves from competitive norms.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            {oppNames.map((name, i) => (
-              <div key={i}>
-                <input
-                  type="text"
-                  placeholder={`Pokémon ${i + 1}${i >= 4 ? ' (optional)' : ''}`}
-                  value={name}
-                  onChange={e => setOppNames(prev => {
-                    const n = [...prev]; n[i] = e.target.value; return n;
-                  })}
-                  onKeyDown={e => { if (e.key === 'Enter') void analyzeOpponents(); }}
-                  className={`w-full bg-gray-800 border ${
-                    oppErrors[i] ? 'border-red-500' : 'border-gray-700'
-                  } rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500 text-sm`}
-                />
-                {oppErrors[i] && (
-                  <p className="text-red-400 text-xs mt-1">{oppErrors[i]}</p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <p className="text-gray-600 text-xs">
-            Use the Pokémon's standard English name (e.g. "Flutter Mane", "Iron Bundle").
-            Regional forms: "Alolan Raichu" → type "raichu-alola".
-          </p>
-
-          <div className="flex gap-3">
             <button
-              onClick={() => setStep('team-select')}
-              className="px-5 py-2.5 rounded-xl bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 text-sm font-medium transition-colors"
-            >
-              ← Back
-            </button>
-            <button
-              onClick={() => void analyzeOpponents()}
-              disabled={loadingOpp || oppNames.every(n => !n.trim())}
-              className="px-8 py-2.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors flex items-center gap-2"
-            >
-              {loadingOpp ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Fetching…
-                </>
-              ) : 'Analyze Team →'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Brings ────────────────────────────────────────────────── */}
-      {step === 'brings' && team && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-white font-bold text-lg">Team Picks</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              For {format}, bring {bringCount} Pokémon. Recommended picks are pre-selected —
-              click to override.
-            </p>
-          </div>
-
-          {/* Opponent overview */}
-          <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
-            <h3 className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">
-              Opponent's Team
-            </h3>
-            <div className="flex gap-4 flex-wrap">
-              {opponents.map((opp, i) => (
-                <div key={i} className="flex flex-col items-center gap-1 min-w-[64px]">
-                  <img
-                    src={pokeSprite(opp.pokemon)}
-                    alt={opp.pokemon.name}
-                    className="w-14 h-14 object-contain"
-                  />
-                  <span className="text-xs text-gray-300 capitalize text-center leading-tight">
-                    {opp.pokemon.name.replace(/-/g, ' ')}
-                  </span>
-                  <div className="flex gap-0.5 flex-wrap justify-center">
-                    {opp.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
-                  </div>
-                  <span className="text-xs text-gray-500">{opp.role}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Our team with toggles */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm text-gray-300 font-semibold">Your Team</h3>
-              <span className="text-xs text-gray-500">
-                {currentBringIds.size}/{bringCount} selected
-              </span>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {team.members.map(member => {
-                const isSelected = currentBringIds.has(member.id);
-                const scored     = recommended.find(s => s.member.id === member.id);
-                return (
-                  <button
-                    key={member.id}
-                    onClick={() => toggleBring(member.id)}
-                    className={`p-3 rounded-2xl border text-left transition-all ${
-                      isSelected
-                        ? 'border-red-500 bg-red-950/30 ring-1 ring-red-500/20'
-                        : 'border-gray-700 bg-gray-800 hover:border-gray-600 opacity-55 hover:opacity-80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={pokeSprite(member.pokemon)}
-                        alt={member.pokemon.name}
-                        className="w-11 h-11 object-contain"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-white capitalize text-sm truncate">
-                          {member.nickname || member.pokemon.name.replace(/-/g, ' ')}
-                        </div>
-                        <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                          {member.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {isSelected && <span className="text-green-400 text-sm">✓</span>}
-                        {scored && (
-                          <span className="text-xs text-yellow-500/80 font-medium">★ Rec</span>
-                        )}
-                      </div>
-                    </div>
-                    {scored && scored.reasons.length > 0 && (
-                      <div className="mt-2 space-y-0.5">
-                        {scored.reasons.map((r, ri) => (
-                          <p key={ri} className="text-xs text-gray-400">• {r}</p>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
+              disabled={!team || team.members.length < minMembers}
               onClick={() => setStep('opponent-input')}
-              className="px-5 py-2.5 rounded-xl bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 text-sm font-medium transition-colors"
+              className="btn btn-primary"
+              style={{ alignSelf: 'flex-start', padding: '10px 24px', fontSize: 13, opacity: (!team || team.members.length < minMembers) ? 0.4 : 1 }}
             >
-              ← Back
-            </button>
-            <button
-              disabled={currentBringIds.size !== bringCount}
-              onClick={() => {
-                setOurLeadIds(new Set());
-                setTheirLeadIdxs(new Set());
-                setStep('leads');
-              }}
-              className="px-8 py-2.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors"
-            >
-              Confirm Picks →
+              NEXT: OPPONENT'S TEAM →
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Step 4: Lead Selection ────────────────────────────────────────── */}
-      {step === 'leads' && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-white font-bold text-lg">Select Leads</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              {format === 'doubles'
-                ? "Pick the 2 Pokémon you'll lead with and the 2 your opponent is leading."
-                : 'Pick the lead Pokémon for each side.'}
-            </p>
+        {/* ── Step 2: Opponent Input ───────────────────────────────────────── */}
+        {step === 'opponent-input' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="panel">
+              <div className="panel-head"><span className="dot" /><h3>Opponent's Team</h3></div>
+              <div style={{ padding: 14 }}>
+                <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                  Enter your opponent's Pokémon names — we'll infer likely EVs, nature, and moves from competitive norms.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {oppNames.map((name, i) => (
+                    <div key={i}>
+                      <input
+                        type="text"
+                        placeholder={`Pokémon ${i + 1}${i >= 4 ? ' (optional)' : ''}`}
+                        value={name}
+                        onChange={e => setOppNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                        onKeyDown={e => { if (e.key === 'Enter') void analyzeOpponents(); }}
+                        className="ipt"
+                        style={{ borderColor: oppErrors[i] ? 'var(--accent)' : undefined }}
+                      />
+                      {oppErrors[i] && <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--accent)' }}>{oppErrors[i]}</p>}
+                    </div>
+                  ))}
+                </div>
+                <p className="mono" style={{ margin: '10px 0 0', fontSize: 10, color: 'var(--text-3)' }}>
+                  Use standard name (e.g. "Flutter Mane") or slug (e.g. "raichu-alola")
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setStep('team-select')} className="btn">← BACK</button>
+              <button
+                onClick={() => void analyzeOpponents()}
+                disabled={loadingOpp || oppNames.every(n => !n.trim())}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: (loadingOpp || oppNames.every(n => !n.trim())) ? 0.5 : 1 }}
+              >
+                {loadingOpp ? <><Spinner size={3} /> FETCHING…</> : 'ANALYZE TEAM →'}
+              </button>
+            </div>
           </div>
+        )}
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Our leads */}
-            <div>
-              <h3 className="text-sm font-bold text-blue-300 mb-3">
-                Your Leads
-                <span className="text-gray-500 font-normal ml-2 text-xs">
-                  ({ourLeadIds.size}/{leadCount})
+        {/* ── Step 3: Brings ───────────────────────────────────────────────── */}
+        {step === 'brings' && team && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* Opponent overview */}
+            <div className="panel">
+              <div className="panel-head"><span className="dot" /><h3>Opponent's Team</h3></div>
+              <div style={{ padding: 14, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {opponents.map((opp, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 64 }}>
+                    <img src={pokeSprite(opp.pokemon)} alt={opp.pokemon.name} style={{ width: 56, height: 56, objectFit: 'contain' }} />
+                    <span style={{ fontSize: 10, color: 'var(--text-1)', textTransform: 'capitalize', textAlign: 'center' }}>
+                      {opp.pokemon.name.replace(/-/g, ' ')}
+                    </span>
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      {opp.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                    </div>
+                    <span className="hud-label" style={{ fontSize: 8 }}>{opp.role}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Our team toggles */}
+            <div className="panel">
+              <div className="panel-head">
+                <span className="dot" />
+                <h3>Your Picks</h3>
+                <span className="mono" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-2)' }}>
+                  {currentBringIds.size}/{bringCount}
                 </span>
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {brings.map(member => {
-                  const selected = ourLeadIds.has(member.id);
+              </div>
+              <div style={{ padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+                {team.members.map(member => {
+                  const isSelected = currentBringIds.has(member.id);
+                  const scored     = recommended.find(s => s.member.id === member.id);
                   return (
                     <button
                       key={member.id}
-                      onClick={() => toggleOurLead(member.id)}
-                      className={`flex flex-col items-center p-3 rounded-xl border transition-all ${
-                        selected
-                          ? 'border-blue-500 bg-blue-950/30 ring-1 ring-blue-400/30'
-                          : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                      }`}
+                      onClick={() => toggleBring(member.id)}
+                      style={{
+                        appearance: 'none', cursor: 'pointer', textAlign: 'left', padding: '10px 12px',
+                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--line-hard)'}`,
+                        background: isSelected ? 'var(--accent-soft)' : 'var(--bg-2)',
+                        opacity: isSelected ? 1 : 0.55,
+                        transition: 'all .1s',
+                      }}
                     >
-                      <img src={pokeSprite(member.pokemon)} className="w-14 h-14 object-contain" alt={member.pokemon.name} />
-                      <span className="text-xs text-gray-200 capitalize mt-1 text-center leading-tight">
-                        {member.nickname || member.pokemon.name.replace(/-/g, ' ')}
-                      </span>
-                      <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
-                        {member.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <img src={pokeSprite(member.pokemon)} alt={member.pokemon.name} style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="hud-title" style={{ fontSize: 12, textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {member.nickname || member.pokemon.name.replace(/-/g, ' ')}
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                            {member.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                          </div>
+                        </div>
+                        {scored && <span className="tag tag-amber" style={{ fontSize: 8 }}>★</span>}
                       </div>
+                      {scored && scored.reasons.length > 0 && (
+                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {scored.reasons.map((r, ri) => (
+                            <p key={ri} className="mono" style={{ margin: 0, fontSize: 9, color: 'var(--text-3)' }}>· {r}</p>
+                          ))}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Their leads */}
-            <div>
-              <h3 className="text-sm font-bold text-red-300 mb-3">
-                Their Leads
-                <span className="text-gray-500 font-normal ml-2 text-xs">
-                  ({theirLeadIdxs.size}/{leadCount})
-                </span>
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {opponents.map((opp, i) => {
-                  const selected = theirLeadIdxs.has(i);
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => toggleTheirLead(i)}
-                      className={`flex flex-col items-center p-3 rounded-xl border transition-all ${
-                        selected
-                          ? 'border-red-500 bg-red-950/30 ring-1 ring-red-400/30'
-                          : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                      }`}
-                    >
-                      <img src={pokeSprite(opp.pokemon)} className="w-14 h-14 object-contain" alt={opp.pokemon.name} />
-                      <span className="text-xs text-gray-200 capitalize mt-1 text-center leading-tight">
-                        {opp.pokemon.name.replace(/-/g, ' ')}
-                      </span>
-                      <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
-                        {opp.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
-                      </div>
-                      <span className="text-xs text-gray-500 mt-0.5">{opp.nature} · {opp.role}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setStep('opponent-input')} className="btn">← BACK</button>
+              <button
+                disabled={currentBringIds.size !== bringCount}
+                onClick={() => { setOurLeadIds(new Set()); setTheirLeadIdxs(new Set()); setStep('leads'); }}
+                className="btn btn-primary"
+                style={{ opacity: currentBringIds.size !== bringCount ? 0.4 : 1 }}
+              >
+                CONFIRM PICKS →
+              </button>
             </div>
           </div>
+        )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStep('brings')}
-              className="px-5 py-2.5 rounded-xl bg-gray-800 border border-gray-700 hover:border-gray-600 text-gray-300 text-sm font-medium transition-colors"
-            >
-              ← Back
-            </button>
-            <button
-              disabled={ourLeadIds.size !== leadCount || theirLeadIdxs.size !== leadCount}
-              onClick={() => setStep('advisor')}
-              className="px-8 py-2.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors"
-            >
-              Get Move Suggestions →
-            </button>
+        {/* ── Step 4: Lead Selection ───────────────────────────────────────── */}
+        {step === 'leads' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {/* Our leads */}
+              <div className="panel">
+                <div className="panel-head">
+                  <span className="dot" style={{ background: 'var(--cyan)' }} />
+                  <h3 style={{ color: 'var(--cyan)' }}>YOUR LEADS</h3>
+                  <span className="mono" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-2)' }}>{ourLeadIds.size}/{leadCount}</span>
+                </div>
+                <div style={{ padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {brings.map(member => {
+                    const selected = ourLeadIds.has(member.id);
+                    return (
+                      <button
+                        key={member.id}
+                        onClick={() => toggleOurLead(member.id)}
+                        style={{
+                          appearance: 'none', cursor: 'pointer', padding: '10px 8px',
+                          border: `1px solid ${selected ? 'var(--cyan)' : 'var(--line-hard)'}`,
+                          background: selected ? 'rgba(43,217,255,.08)' : 'var(--bg-2)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                          transition: 'all .1s',
+                        }}
+                      >
+                        <img src={pokeSprite(member.pokemon)} alt={member.pokemon.name} style={{ width: 52, height: 52, objectFit: 'contain' }} />
+                        <span style={{ fontSize: 10, color: 'var(--text-1)', textTransform: 'capitalize', textAlign: 'center' }}>
+                          {member.nickname || member.pokemon.name.replace(/-/g, ' ')}
+                        </span>
+                        <div style={{ display: 'flex', gap: 3 }}>
+                          {member.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Their leads */}
+              <div className="panel">
+                <div className="panel-head">
+                  <span className="dot" />
+                  <h3 style={{ color: 'var(--accent)' }}>THEIR LEADS</h3>
+                  <span className="mono" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-2)' }}>{theirLeadIdxs.size}/{leadCount}</span>
+                </div>
+                <div style={{ padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {opponents.map((opp, i) => {
+                    const selected = theirLeadIdxs.has(i);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => toggleTheirLead(i)}
+                        style={{
+                          appearance: 'none', cursor: 'pointer', padding: '10px 8px',
+                          border: `1px solid ${selected ? 'var(--accent)' : 'var(--line-hard)'}`,
+                          background: selected ? 'var(--accent-soft)' : 'var(--bg-2)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                          transition: 'all .1s',
+                        }}
+                      >
+                        <img src={pokeSprite(opp.pokemon)} alt={opp.pokemon.name} style={{ width: 52, height: 52, objectFit: 'contain' }} />
+                        <span style={{ fontSize: 10, color: 'var(--text-1)', textTransform: 'capitalize', textAlign: 'center' }}>
+                          {opp.pokemon.name.replace(/-/g, ' ')}
+                        </span>
+                        <div style={{ display: 'flex', gap: 3 }}>
+                          {opp.pokemon.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
+                        </div>
+                        <span className="hud-label" style={{ fontSize: 8, color: 'var(--text-3)' }}>{opp.nature} · {opp.role}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setStep('brings')} className="btn">← BACK</button>
+              <button
+                disabled={ourLeadIds.size !== leadCount || theirLeadIdxs.size !== leadCount}
+                onClick={() => setStep('advisor')}
+                className="btn btn-primary"
+                style={{ opacity: (ourLeadIds.size !== leadCount || theirLeadIdxs.size !== leadCount) ? 0.4 : 1 }}
+              >
+                GET MOVE SUGGESTIONS →
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Step 5: Move Advisor ──────────────────────────────────────────── */}
-      {step === 'advisor' && (
-        <MoveAdvisor
-          ourLeads={ourLeads}
-          theirLeads={theirLeads}
-          ourBench={ourBench}
-          theirBench={theirBench}
-          onSwitchOurLead={switchOurLead}
-          onSwitchTheirLead={switchTheirLead}
-          onBack={() => setStep('leads')}
-          onReset={fullReset}
-        />
-      )}
+        {/* ── Step 5: Move Advisor ─────────────────────────────────────────── */}
+        {step === 'advisor' && (
+          <MoveAdvisor
+            ourLeads={ourLeads}
+            theirLeads={theirLeads}
+            ourBench={ourBench}
+            theirBench={theirBench}
+            onSwitchOurLead={switchOurLead}
+            onSwitchTheirLead={switchTheirLead}
+            onBack={() => setStep('leads')}
+            onReset={fullReset}
+          />
+        )}
+      </div>
     </div>
   );
 }
